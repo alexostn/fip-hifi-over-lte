@@ -1,3 +1,4 @@
+# initial script
 #!/bin/bash
 declare -A STATIONS
 STATIONS[fip]="https://icecast.radiofrance.fr/fip-hifi.aac?id=radiofrance"
