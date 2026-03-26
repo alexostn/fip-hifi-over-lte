@@ -1,4 +1,3 @@
-ll
 #!/bin/bash
 declare -A STATIONS
 STATIONS[fip]="https://icecast.radiofrance.fr/fip-hifi.aac?id=radiofrance"
@@ -27,19 +26,28 @@ if [ -n "$URL" ]; then
             --audio-format=s16            # 16-bit int — enough for AAC 192k; use floatp for DSP effects
             --audio-samplerate=48000      # matches FIP stream native rate
             --audio-buffer=6.0            # 6s buffer — absorbs mobile network dips (was 2.0)
+            # --- cache: live-stream safe mode ---	
             --cache=yes                   # enable demuxer cache for smoother playback
-            --demuxer-max-bytes=8MiB      # ~40s lookahead buffer for 192k AAC
+            --demuxer-max-bytes=8MiB      # ≈ 340sec~5min max demuxer buffer for 192k AAC
             --demuxer-readahead-secs=20   # read 20s ahead to survive short outages
-            --network-timeout=15          # drop hung TCP instead of freezing forever
+            
+            --cache-pause=no              # do not freeze reconnect through: while true
+            --cache-pause-initial=no      # no silence by start
+            # network
+            --stream-buffer-size=512KiB   # TCP-buffer
+            --network-timeout=10          # drop hung TCP instead of freezing forever
+            
+            # reconnect
             --stream-lavf-o-append=reconnect=1                  # enable HTTP reconnect
             --stream-lavf-o-append=reconnect_streamed=1         # KEY: Icecast has no range-request support
+            
             --stream-lavf-o-append=reconnect_on_network_error=yes   # reconnect on LTE/WiFi drops
             --stream-lavf-o-append=reconnect_on_http_error=4xx,5xx  # reconnect on server errors
             --stream-lavf-o-append=reconnect_delay_max=5        # max 5s between reconnect attempts
         )
         mpv "${MPV_ARGS[@]}" "$URL"
-        echo "( ˘・з・)・・・  interrupted — reconnect after 3 sec..."
-        sleep 3
+        echo "( ˘・з・)・・・  interrupted — reconnect after 1 sec..."
+        sleep 1
     done
 else
     echo "fip rock jazz groove world reggae electro hiphop pop metal sacre cultes nouveautes"
@@ -50,4 +58,3 @@ fi
 # --audio-buffer=4.0   # instead 2.0 for easy effects
 
 # mpv ... with \\ replaced by the MPV_ARGS=(...) array + mpv “${MPV_ARGS[@]}” “$URL” — comments on each line now work correctly
-
