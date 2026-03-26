@@ -1,5 +1,4 @@
-
-ll
+# best last good working version
 #!/bin/bash
 declare -A STATIONS
 STATIONS[fip]="https://icecast.radiofrance.fr/fip-hifi.aac?id=radiofrance"
