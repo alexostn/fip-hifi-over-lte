@@ -31,12 +31,13 @@ if [ -n "$URL" ]; then
             --demuxer-max-bytes=8MiB      # ≈ 340sec~5min max demuxer buffer for 192k AAC
             --demuxer-readahead-secs=20   # read 20s ahead to survive short outages
             
-            --cache-pause=no              # do not freeze reconnect through: while true
-            --cache-pause-initial=no      # no silence by start
-            # network
+            --cache-pause=yes             # pause briefly on drain — cleaner than underrun glitches
+            --cache-pause-wait=0.2        # wait only 0.2s of data before resume (1.0 caused 17s freeze)
+            --cache-pause-initial=no     # no silence while cache fills on start/reconnect
+            # --- network ---
             --stream-buffer-size=512KiB   # TCP-buffer
             --network-timeout=10          # drop hung TCP instead of freezing forever
-            
+            --demuxer-lavf-o-append=fflags=+discardcorrupt	# drop corrupt AAC frames after mid-stream reconnect
             # reconnect
             --stream-lavf-o-append=reconnect=1                  # enable HTTP reconnect
             --stream-lavf-o-append=reconnect_streamed=1         # KEY: Icecast has no range-request support
