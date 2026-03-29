@@ -46,8 +46,7 @@ if [ -n "$URL" ]; then
             --cache=yes                   # enable demuxer cache for smoother playback
             --demuxer-max-bytes=8MiB      # ~340s/5min max demuxer buffer for 192k AAC
             --demuxer-readahead-secs=20   # read 20s ahead to survive short outages
-            --cache-pause=yes             # pause when cache=0 — cleaner than underrun
-            --cache-pause-wait=0.05       # resume after just 50ms of buffer (1.0 caused 17s freeze)
+            --cache-pause=no              # no freezes — errors handled by while true reconnect
             --cache-pause-initial=no      # no silence while cache fills on start/reconnect
             --demuxer-lavf-o-append=fflags=+discardcorrupt  # drop corrupt AAC frames after mid-stream reconnect
             --demuxer-lavf-o-append=err_detect=ignore_err   # ignore AAC decoder errors — don't crash on malformed frames
