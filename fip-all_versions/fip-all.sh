@@ -30,7 +30,7 @@ NAME="${1:-fip}"
 URL="${STATIONS[$NAME]}"
 
 if [ -n "$URL" ]; then
-    echo "٩(◕‿◕)۶FIP 5 $NAME — 192kbps Hi-Fi (mobile-stable)"
+    echo "٩(◕‿◕)۶FIP 8 $NAME — 192kbps Hi-Fi (mobile-stable)"
     while true; do
         MPV_ARGS=(
             --no-video
