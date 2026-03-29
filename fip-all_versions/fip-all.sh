@@ -14,6 +14,18 @@ STATIONS[metal]="https://icecast.radiofrance.fr/fipmetal-hifi.aac?id=radiofrance
 STATIONS[sacre]="https://icecast.radiofrance.fr/fipsacrefrancais-hifi.aac?id=radiofrance"
 STATIONS[cultes]="https://icecast.radiofrance.fr/fipcultes-hifi.aac?id=radiofrance"
 
+# ——( ˘・з・)—— DNS pre-resolve via Quad9 (9.9.9.9 Switzerland no-log) ——————————
+# ask once at startup — mpv connects by IP, no DNS needed on reconnects ↓↓↓
+HOST=$(echo "$URL" | sed 's|https://||' | cut -d'/' -f1)
+RESOLVED_IP=$(dig +short "$HOST" @9.9.9.9 2>/dev/null | grep -E '^[0-9]+\.' | tail -1)
+if [ -n "$RESOLVED_IP" ]; then
+    URL=$(echo "$URL" | sed "s|$HOST|$RESOLVED_IP|")
+    SNI_ARG="--tls-server-name=$HOST"  # keep original hostname for TLS/SNI handshake
+else
+    SNI_ARG=""                          # fallback: no IP found, use URL as-is
+fi
+# ————————————————————————————————————————————————————————————————————————————————
+
 NAME="${1:-fip}"
 URL="${STATIONS[$NAME]}"
 
