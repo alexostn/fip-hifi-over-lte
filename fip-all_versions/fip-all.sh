@@ -15,7 +15,7 @@ STATIONS[sacre]="https://icecast.radiofrance.fr/fipsacrefrancais-hifi.aac?id=rad
 STATIONS[cultes]="https://icecast.radiofrance.fr/fipcultes-hifi.aac?id=radiofrance"
 
 # ——( ˘・з・)—— DNS pre-resolve via Quad9 (9.9.9.9 Switzerland no-log) ——————————
-# ask once at startup — mpv connects by IP, no DNS needed on reconnects ↓↓↓
+# ask once at startup — mpv connects by IP, no DNS needed on reconnects ↓↓↓ +time=2 +tries=1
 HOST=$(echo "$URL" | sed 's|https://||' | cut -d'/' -f1)
 RESOLVED_IP=$(dig +short +time=2 +tries=1 "$HOST" @9.9.9.9 2>/dev/null | grep -E '^[0-9]+\.' | tail -1)
 if [ -n "$RESOLVED_IP" ]; then
@@ -30,7 +30,7 @@ NAME="${1:-fip}"
 URL="${STATIONS[$NAME]}"
 
 if [ -n "$URL" ]; then
-    echo "٩(◕‿◕)۶FIP 8 $NAME — 192kbps Hi-Fi (mobile-stable)"
+    echo "٩(◕‿◕)۶FIP 10 $NAME — 192kbps Hi-Fi (mobile-stable)"
     while true; do
         MPV_ARGS=(
             --no-video
@@ -43,7 +43,9 @@ if [ -n "$URL" ]; then
             --cache=yes                   # enable demuxer cache for smoother playback
             --demuxer-max-bytes=8MiB      # ~340s/5min max demuxer buffer for 192k AAC
             --demuxer-readahead-secs=20   # read 20s ahead to survive short outages
-            --cache-pause=no              # no freezes — errors handled by while true reconnect
+            --cache-pause=yes             # pause when cache=0 — better than underrun
+            --cache-pause-wait=0.05       # resume after just 50ms of buffer (1.0 caused 17s freeze)
+            --cache-pause-initial=no      # no silence while cache fills on start/reconnect
             --cache-pause-initial=no      # no silence while cache fills on start/reconnect
             --demuxer-lavf-o-append=fflags=+discardcorrupt  # drop corrupt AAC frames after mid-stream reconnect
             --demuxer-lavf-o-append=err_detect=ignore_err   # ignore AAC decoder errors — don't crash on malformed frames
