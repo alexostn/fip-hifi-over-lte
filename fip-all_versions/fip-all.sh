@@ -17,7 +17,7 @@ STATIONS[cultes]="https://icecast.radiofrance.fr/fipcultes-hifi.aac?id=radiofran
 # ——( ˘・з・)—— DNS pre-resolve via Quad9 (9.9.9.9 Switzerland no-log) ——————————
 # ask once at startup — mpv connects by IP, no DNS needed on reconnects ↓↓↓
 HOST=$(echo "$URL" | sed 's|https://||' | cut -d'/' -f1)
-RESOLVED_IP=$(dig +short "$HOST" @9.9.9.9 2>/dev/null | grep -E '^[0-9]+\.' | tail -1)
+RESOLVED_IP=$(dig +short +time=2 +tries=1 "$HOST" @9.9.9.9 2>/dev/null | grep -E '^[0-9]+\.' | tail -1)
 if [ -n "$RESOLVED_IP" ]; then
     URL=$(echo "$URL" | sed "s|$HOST|$RESOLVED_IP|")
     SNI_ARG="--tls-server-name=$HOST"  # keep original hostname for TLS/SNI handshake
@@ -46,7 +46,7 @@ if [ -n "$URL" ]; then
             --cache-pause=no              # no freezes — errors handled by while true reconnect
             --cache-pause-initial=no      # no silence while cache fills on start/reconnect
             --demuxer-lavf-o-append=fflags=+discardcorrupt  # drop corrupt AAC frames after mid-stream reconnect
-
+            --demuxer-lavf-o-append=err_detect=ignore_err   # ignore AAC decoder errors — don't crash on malformed frames
             # --- network ---
             --stream-buffer-size=512KiB   # TCP-level read buffer; smooths burst drops at LTE layer
             --network-timeout=10          # drop hung TCP instead of freezing forever
