@@ -1,36 +1,30 @@
-# fixaudio
-**EN:** Personal audiophile toolkit for uninterrupted high-quality audio on Ubuntu —  
+# fixaudio  ٩(◕‿◕)۶
+
+**EN:** Personal audiophile toolkit for uninterrupted HiFi audio on Ubuntu —
 focused on stable FIP radio streaming over unstable LTE connections.
 
-**FR:** Boîte à outils audio personnelle sous Ubuntu — streaming FIP 192kbps  
-stable via connexion LTE instable, avec Icecast et latence minimale.
+**FR:** Boîte à outils audio personnelle sous Ubuntu —
+streaming FIP HiFi AAC 192kbps stable via connexion LTE instable.
 
 ---
 
-##  fip-stream.sh — FIP 192kbps over LTE
+## ≡≡≡ヽ(゜∀゜)ノ fip-stream.sh — FIP HiFi over LTE
 
-Stable high-quality FIP stream via Icecast relay on Ubuntu.  
-Built to handle mobile network instability without audio dropouts.
+Stable FIP stream on Ubuntu, tuned for mobile network instability without audio dropouts.
+DNS pre-resolved at startup, reconnects handled at both mpv and shell level.
 
-**Stack:** `bash` · `Icecast2` · `ffmpeg` · `systemd`
+**Stack:** `bash` · `mpv` · `dig` (dnsutils)
 
 ```bash
-# Quick start
-chmod +x fip-stream.sh && ./fip-stream.sh
+chmod +x fip-stream.sh && ./fip-stream.sh        # FIP main
+./fip-stream.sh jazz                              # FIP Jazz
 ```
 
-→ Tested on Ubuntu 22.04, FIP stream v10 (Radio France Open API)
+Tested on Ubuntu 22.04 · FIP stream v11 · Radio France HiFi AAC 192kbps
 
 ---
 
-##  hardware/fix-audio.sh — PipeWire 48kHz
+## (づ￣ ³￣)づ ⚙⚙⚙ hardware/fix-audio.sh — PipeWire 48kHz
 
-Hardware-specific audio fix for external DAC/receiver (Onkyo).  
+Hardware-specific audio fix for external DAC/receiver (Onkyo).
 Forces PipeWire to 48000Hz for bit-perfect playback.
-
----
-
-##  docs/ — Integration notes
-
-Notes on integrating FIP metadata into a larger audio platform  
-(work in progress, connected to [ft_transcendence](#)).
