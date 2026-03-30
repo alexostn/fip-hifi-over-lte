@@ -1,0 +1,34 @@
+# hardware/fix-audio.sh  (づ￣ ³￣)づ ⚙⚙⚙
+
+**EN:** Recovery script for PipeWire + Realtek on Ubuntu.
+Unmasks services, reloads ALSA, sets Realtek as default sink, enables autostart on boot.
+
+**FR:** Script de récupération PipeWire + Realtek sous Ubuntu.
+Démasque les services, recharge ALSA, définit Realtek par défaut, active le démarrage automatique.
+
+---
+
+## ≡≡≡ヽ(゜∀゜)ノ Quick start
+
+```bash
+chmod +x fix-audio.sh && ./fix-audio.sh
+```
+
+**Stack:** `bash` · `PipeWire` · `WirePlumber` · `ALSA` · `pactl`
+
+---
+
+## (￣ー￣)ゞ What it does
+[✔] (ﾉ゜▽゜)ﾉ unmask + restart full PipeWire stack
+[✔] (ﾉ゜▽゜)ﾉ force ALSA reload
+[✔] (ﾉ゜▽゜)ﾉ auto-detect and set default Realtek sink
+[✔] (ﾉ゜▽゜)ﾉ audio test via speaker-test
+[✔] (ﾉ゜▽゜)ﾉ enable autostart on boot
+
+
+---
+
+## (；゜゜)ノ ！notice！
+
+Hardware-specific — built for Realtek + external Onkyo receiver.
+Adjust `alsa_output` sink filter in the script to match your hardware.
