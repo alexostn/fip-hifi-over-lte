@@ -2,7 +2,7 @@
 
 ٩(◕‿◕) **EN:** Personal toolkit for uninterrupted HiFi audio on Ubuntu —
 stable FIP radio streaming over unstable LTE connections.
-> work in progress — tested in the field, open for improvements.
+> ...work in progress — tested in the field, open for improvements
 
 ٩(◕‿◕) **FR:** Boîte à outils audio personnelle sous Ubuntu —
 streaming FIP HiFi AAC 192kbps stable via connexion LTE instable.
