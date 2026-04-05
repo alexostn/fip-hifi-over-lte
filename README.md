@@ -1,4 +1,4 @@
-# ♫ FIP Radio — keeps playing on weak LTE
+# FIP Radio on weak LTE
 
 ٩(◕‿◕) **EN:** Personal toolkit for uninterrupted HiFi audio on Ubuntu —
 stable FIP radio streaming over unstable LTE connections.
@@ -146,4 +146,3 @@ sudo apt install mpv dnsutils
 ```
 
 Tested on Ubuntu 22.04 · fip-stream v14 · Radio France HiFi AAC 192kbps · Onkyo external DAC
-```
