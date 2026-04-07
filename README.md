@@ -5,7 +5,7 @@ stable FIP radio streaming over unstable LTE connections.
 > ...work in progress — tested in the field, open for improvements
 
 ٩(◕‿◕) **FR:** Boîte à outils audio personnelle sous Ubuntu —
-streaming FIP HiFi AAC 192kbps stable via connexion LTE instable.
+streaming FIP HiFi AAC 192kbps stable via connexion LTE instable. 
 
 ---
 
