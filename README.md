@@ -12,8 +12,7 @@ streaming FIP HiFi AAC 192kbps stable via connexion LTE instable.
 ## ≡≡≡ヽ(゜∀゜)ノ Quick start
 
 ```bash
-curl -O https://raw.githubusercontent.com/alexostn/fip-stream/main/fip-stream.sh
-chmod +x fip-stream.sh
+curl -O https://raw.githubusercontent.com/alexostn/fip-hifi-over-lte/main/fip-stream.sh
 ./fip-stream.sh          # FIP main
 ./fip-stream.sh jazz     # FIP Jazz
 ```
