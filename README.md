@@ -1,4 +1,4 @@
-# FIP Radio on weak LTE
+# ♫ FIP Radio on weak LTE
 
 ٩(◕‿◕) **EN:** Personal toolkit for uninterrupted HiFi audio on Ubuntu —
 stable FIP radio streaming over unstable LTE connections.
