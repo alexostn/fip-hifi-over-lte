@@ -115,9 +115,9 @@ Stop playback  `Ctrl+C`
 ---
 ---
 
-## Quick checklist / Быстрый чеклист
+## Quick checklist
 
-| Step / Шаг | Command | Expected  |
+| Step  | Command | Expected  |
 |---|---|---|
 | flatpak OK | `flatpak --version` | `flatpak 1.x` |
 | mpv installed | `mpv --version` | `mpv 0.3x` |
