@@ -65,7 +65,69 @@ EOF
 
 # Make executable
 chmod +x ~/.local/bin/mpv
-`````
+```
+
+Verify wrapper works
+```
+which mpv     # should print: ~/.local/bin/mpv
+mpv --version # should print: mpv 0.3x.x
+```
+
+## 3 · Verify audio on laptop speakers
+
+**Smoke test** — 5 seconds of silence-free audio from FIP:
+
+```
+# 5-second audio test via laptop speakers
+mpv --no-video --length=5 --ao=pulse \
+  "https://icecast.radiofrance.fr/fip-hifi.aac?id=radiofrance"
+```
+If you hear music — everything is ready.
+
+
+> **Troubleshoot / no sound:**
+> ```
+> # List available audio outputs
+> pactl list short sinks
+> # Try explicit output
+> mpv --no-video --length=5 --ao=alsa \
+>   "https://icecast.radiofrance.fr/fip-hifi.aac?id=radiofrance"
+> ```
+
+---
+
+## 4 · Download and run the main script
+
+```
+# Download
+curl -O https://raw.githubusercontent.com/alexostn/fip-hifi-over-lte/main/fip-stream.sh
+chmod +x fip-stream.sh
+
+# Run FIP main
+./fip-stream.sh
+
+# Or with genre alias / Или с жанровым псевдонимом
+./fip-stream.sh jazz
+```
+
+Stop playback  `Ctrl+C`
+
+---
+---
+
+## Quick checklist / Быстрый чеклист
+
+| Step / Шаг | Command | Expected  |
+|---|---|---|
+| flatpak OK | `flatpak --version` | `flatpak 1.x` |
+| mpv installed | `mpv --version` | `mpv 0.3x` |
+| audio works | `pactl info` | sink: `alsa_output...` |
+| smoke test | `mpv --no-video --length=5 <url>` | music heard |
+| script runs | `./fip-stream.sh` | `٩(◕‿◕)۶FIP fip — 192kbps...` |
+
+---
+
+*fip-hifi-over-lte · pre-setup v1 · tested: Ubuntu 22.04 · no-sudo · flatpak*
 
 
 
