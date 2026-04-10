@@ -116,8 +116,10 @@ Stop playback  `Ctrl+C`
 | script runs | `./fip-stream.sh` | `٩(◕‿◕) FIP fip — 192kbps...` |
 
 ---
-
+[back to README.md](../README.md)
 *fip-hifi-over-lte · pre-setup v1 · tested: Ubuntu 22.04 · no-sudo · flatpak*
+
+
 
 
 
