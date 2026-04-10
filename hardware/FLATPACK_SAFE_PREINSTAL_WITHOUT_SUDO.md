@@ -106,7 +106,7 @@ chmod +x fip-stream.sh
 # Run FIP main
 ./fip-stream.sh
 
-# Or with genre alias / Или с жанровым псевдонимом
+# Or with genre alias
 ./fip-stream.sh jazz
 ```
 
