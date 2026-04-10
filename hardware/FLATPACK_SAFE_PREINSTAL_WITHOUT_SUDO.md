@@ -18,15 +18,6 @@ echo "=== audio ===" && pactl info | grep -E "Server Name|Default Sink"
 ```
 Expected good output:
 ```
-=== flatpak === flatpak 1.x.x          ← needed
-=== mpv === MISSING — will install via flatpak
-=== dig === MISSING — DNS pre-warm will be skipped (safe)
-=== curl === curl 7.x.x
-=== audio === Server Name: PulseAudio   ← or PipeWire-pulse, both fine
-              Default Sink: alsa_output.pci... ← laptop speakers
-```
-if
-```
 | Tool    | Status | Conclusion                                     |
 | ------- | -----  | ---------------------------------------------- |
 | flatpak | [✔]    | 1.12.7 — install mpv with its help             |
