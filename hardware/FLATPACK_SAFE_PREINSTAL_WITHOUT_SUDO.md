@@ -113,7 +113,6 @@ chmod +x fip-stream.sh
 Stop playback  `Ctrl+C`
 
 ---
----
 
 ## Quick checklist
 
@@ -123,7 +122,7 @@ Stop playback  `Ctrl+C`
 | mpv installed | `mpv --version` | `mpv 0.3x` |
 | audio works | `pactl info` | sink: `alsa_output...` |
 | smoke test | `mpv --no-video --length=5 <url>` | music heard |
-| script runs | `./fip-stream.sh` | `٩(◕‿◕)۶FIP fip — 192kbps...` |
+| script runs | `./fip-stream.sh` | `٩(◕‿◕) FIP fip — 192kbps...` |
 
 ---
 
