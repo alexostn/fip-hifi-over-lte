@@ -1,8 +1,7 @@
 #!/bin/bash
-# ٩(◕‿◕)~*✲ FIP RADIO — mobile-stable HiFi stream v14
-# Diagnostics layer: replaces fip-reconnects.log with structured JSONL
-# + Prometheus textfile metrics for node_exporter --collector.textfile
-# Goal: detect root cause of LTE interruptions (DNS / TCP / HTTP / buffer)
+# ٩(◕‿◕)~*✲ FIP RADIO — mobile-stable HiFi stream v15
+# Diagnostics: JSONL + Prometheus textfile for node_exporter
+# Logs: ~/fip-diagnostics.jsonl | ~/.prom-textfile/fip_stream.prom | /tmp/fip-mpv-last.log
 
 declare -A STATIONS
 STATIONS[fip]="https://icecast.radiofrance.fr/fip-hifi.aac?id=radiofrance"
@@ -27,18 +26,17 @@ HOST=$(echo "$URL" | sed 's|https://||' | cut -d'/' -f1)
 dig +short +time=2 +tries=1 "$HOST" @9.9.9.9 >/dev/null 2>&1 &
 # ————————————————————————————————————————————————————————————————————————————
 
-# ——( ˘・з・)—— Diagnostics paths ——————————————————————————————————————————————
-JSONL="${HOME}/fip-diagnostics.jsonl"       # structured log — one JSON per reconnect
-PROM_DIR="${HOME}/.prom-textfile"           # node_exporter textfile dir
+# ——( ˘・з・)—— Diagnostics paths (shown in mpv window on start) ———————————————
+JSONL="${HOME}/fip-diagnostics.jsonl"
+PROM_DIR="${HOME}/.prom-textfile"
 PROM_FILE="${PROM_DIR}/fip_stream.prom"
-MPV_LOG="/tmp/fip-mpv-last.log"            # mpv's own log — last session only
+MPV_LOG="/tmp/fip-mpv-last.log"
 mkdir -p "$PROM_DIR"
 # ————————————————————————————————————————————————————————————————————————————
 
 COUNT=0
-SCRIPT_START=$(date +%s)
 
-# ——— helper: gather network context (runs in ~2s max, all parallel) ————————
+# ——— helper: gather network context (~2s max, all parallel) ———————————————
 collect_diagnostics() {
     local exit_code=$1 duration=$2
 
@@ -46,7 +44,6 @@ collect_diagnostics() {
     local ping_rtt
     ping_rtt=$(ping -c 1 -W 2 "$HOST" 2>/dev/null \
         | grep -oP 'time=\K[0-9.]+' || echo "null")
-    [ "$ping_rtt" != "null" ] && ping_rtt="${ping_rtt}" || true
 
     # 2. HTTP probe — did Icecast answer at all?
     local http_code
@@ -58,46 +55,42 @@ collect_diagnostics() {
     dns_ms=$(dig +stats +time=2 +tries=1 "$HOST" @9.9.9.9 2>/dev/null \
         | grep -i "query time" | grep -oP '\d+(?= msec)' || echo "-1")
 
-    # 4. LTE signal (nmcli — works for WiFi; for LTE modem: mmcli -m 0 --signal-get)
+    # 4. LTE signal (nmcli for WiFi; mmcli -m 0 --signal-get for LTE modem)
     local signal
     signal=$(nmcli -t -f active,signal dev wifi 2>/dev/null \
         | grep "^yes" | cut -d: -f2 || echo "-1")
-    # uncomment if on ModemManager LTE:
-    # signal=$(mmcli -m 0 --signal-get 2>/dev/null | grep rssi | grep -oP '[-0-9.]+' || echo "-1")
 
-    # 5. Classify cause from exit_code + network state
+    # 5. Classify cause
     local cause
-    if   [ "$ping_rtt" = "null" ];     then cause="no_network"
-    elif [ "$exit_code" -eq 0 ];       then cause="clean_exit"
+    if   [ "$ping_rtt" = "null" ];             then cause="no_network"
+    elif [ "$exit_code" -eq 0 ];               then cause="clean_exit"
     elif [ "$http_code" -ge 500 ] 2>/dev/null; then cause="server_error"
     elif [ "$http_code" -ge 400 ] 2>/dev/null; then cause="http_4xx"
-    elif [ "$duration" -lt 5 ];        then cause="fast_fail"    # DNS/TCP likely
-    else                                    cause="stream_drop"  # genuine LTE drop
+    elif [ "$duration" -lt 5 ];                then cause="fast_fail"
+    else                                            cause="stream_drop"
     fi
 
-    # ——— write JSONL ———————————————————————————————————————————————————————
+    # ——— write JSONL ——————————————————————————————————————————————————————
     printf '{"ts":"%s","count":%d,"station":"%s","duration_s":%d,"exit_code":%d,"ping_ms":%s,"http_code":%s,"dns_ms":%s,"lte_signal":%s,"cause":"%s"}\n' \
         "$(date -Iseconds)" "$COUNT" "$NAME" "$duration" "$exit_code" \
         "${ping_rtt:-null}" "$http_code" "$dns_ms" "$signal" "$cause" \
         >> "$JSONL"
 
     # ——— write Prometheus textfile ————————————————————————————————————————
-    # node_exporter reads this if started with:
-    # --collector.textfile.directory=$HOME/.prom-textfile
     cat > "${PROM_FILE}.tmp" << PROM
 # HELP fip_reconnect_total Total reconnections since script start
 # TYPE fip_reconnect_total counter
 fip_reconnect_total{station="$NAME"} $COUNT
-# HELP fip_session_duration_seconds Duration of last playback session in seconds
+# HELP fip_session_duration_seconds Duration of last playback session
 # TYPE fip_session_duration_seconds gauge
 fip_session_duration_seconds{station="$NAME"} $duration
-# HELP fip_ping_ms Ping RTT to Icecast host at reconnect time (-1 = no network)
+# HELP fip_ping_ms Ping RTT to Icecast host at reconnect (-1 = no network)
 # TYPE fip_ping_ms gauge
 fip_ping_ms{station="$NAME",host="$HOST"} ${ping_rtt/-1/0}
 # HELP fip_http_response_code HTTP response code from stream URL probe
 # TYPE fip_http_response_code gauge
 fip_http_response_code{station="$NAME"} $http_code
-# HELP fip_dns_ms DNS resolution time in ms at reconnect (-1 = skipped)
+# HELP fip_dns_ms DNS resolution time in ms (-1 = skipped)
 # TYPE fip_dns_ms gauge
 fip_dns_ms{station="$NAME",resolver="quad9"} $dns_ms
 # HELP fip_lte_signal LTE/WiFi signal level 0-100 (-1 = unavailable)
@@ -112,44 +105,50 @@ PROM
 # ————————————————————————————————————————————————————————————————————————————
 
 if [ -n "$URL" ]; then
-    echo "٩(◕‿◕) FIP 14 $NAME — 192kbps Hi-Fi (mobile-stable + diagnostics)"
-    echo "  log:   $JSONL"
-    echo "  prom:  $PROM_FILE"
-    echo "  mpv:   $MPV_LOG"
+    echo "٩(◕‿◕) FIP 15 $NAME — 192kbps Hi-Fi (mobile-stable + diagnostics)"
 
     while true; do
         SESSION_START=$(date +%s)
 
         MPV_ARGS=(
-            --no-video
+            # --- audio -------------------------------------------------------
             --audio-channels=stereo
-            --audio-format=s16
-            --audio-samplerate=48000
-            --audio-buffer=6.0
+            --audio-format=s16              # 16-bit — enough for AAC 192k
+            --audio-samplerate=48000        # matches FIP native rate
 
-            # cache
+            # --- stats window ------------------------------------------------
+            # window shows log paths + hint; Shift+I expands full audio stats
+            --force-window=yes
+            --geometry=610x700+0+0          # visible but compact, top-left
+            --title="FIP ${NAME} 192k HiFi"
+            --osd-font-size=28              # readable text size in window
+            --osd-msg1="( ˘・з・) FIP ${NAME} — 192kbps Hi-Fi\nlog:  ${JSONL}\nprom: ${PROM_FILE}\nmpv:  ${MPV_LOG}\n\nShift+I — sound parameters"
+
+            # --- buffer: absorbs 1-3s LTE gaps silently ----------------------
+            --audio-buffer=10.0
             --cache=yes
-            --demuxer-max-bytes=8MiB
-            --demuxer-readahead-secs=20
+            --demuxer-max-bytes=16MiB
+            --demuxer-readahead-secs=30
             --cache-pause=no
             --cache-pause-initial=no
             --demuxer-lavf-o-append=fflags=+discardcorrupt
             --demuxer-lavf-o-append=err_detect=ignore_err
 
-            # network
+            # --- network -----------------------------------------------------
             --stream-buffer-size=512KiB
             --network-timeout=10
 
-            # reconnect
+            # --- reconnect ---------------------------------------------------
             --stream-lavf-o-append=reconnect=1
             --stream-lavf-o-append=reconnect_streamed=1
             --stream-lavf-o-append=reconnect_on_network_error=yes
             --stream-lavf-o-append=reconnect_on_http_error=4xx,5xx
             --stream-lavf-o-append=reconnect_delay_max=10
+            --stream-lavf-o-append=rw_timeout=15000000
+            --stream-lavf-o-append=user_agent='Mozilla/5.0 (compatible; fip-hifi-stream/15; LTE)'
 
-            # mpv own log — overwrites each session (keep last only)
             --log-file="$MPV_LOG"
-            --msg-level=all=warn,network=debug  # network debug, rest warn-only
+            --msg-level=all=warn,network=debug
         )
 
         mpv "${MPV_ARGS[@]}" "$URL"
@@ -159,8 +158,7 @@ if [ -n "$URL" ]; then
         SESSION_DURATION=$((SESSION_END - SESSION_START))
         COUNT=$((COUNT + 1))
 
-        # diagnostics in background — does NOT block the reconnect
-        collect_diagnostics "$EXIT_CODE" "$SESSION_DURATION" &
+        collect_diagnostics "$EXIT_CODE" "$SESSION_DURATION" &  # non-blocking
 
         echo "( ˘・з・)・・・ #${COUNT} interrupted (${SESSION_DURATION}s) — reconnect after 1s…"
         sleep 1
@@ -169,10 +167,10 @@ else
     echo "stations: fip rock jazz groove world reggae electro hiphop pop metal sacre cultes nouveautes"
 fi
 
-# ——— analysis shortcuts ———————————————————————————————————————————————————————
-# tail JSON:          tail -f ~/fip-diagnostics.jsonl | jq .
+# ——— analysis shortcuts ——————————————————————————————————————————————————————
+# tail live:          tail -f ~/fip-diagnostics.jsonl | jq .
 # cause breakdown:    jq -r '.cause' ~/fip-diagnostics.jsonl | sort | uniq -c | sort -rn
 # short sessions:     jq 'select(.duration_s < 10)' ~/fip-diagnostics.jsonl
 # no-network events:  jq 'select(.cause == "no_network")' ~/fip-diagnostics.jsonl
-# dns stalls (>500ms):jq 'select(.dns_ms > 500)' ~/fip-diagnostics.jsonl
-# —————————————————————————————————————————————————————————————————————————————
+# dns stalls >500ms:  jq 'select(.dns_ms > 500)' ~/fip-diagnostics.jsonl
+# ————————————————————————————————————————————————————————————————————————————
