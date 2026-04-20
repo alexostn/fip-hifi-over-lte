@@ -1,5 +1,11 @@
 #!/bin/bash
-# ( ˘・з・) restore PipeWire + Realtek / restauration PipeWire + Realtek
+# ( ˘・з・) Restore PipeWire + Realtek / restauration PipeWire + Realtek
+#
+# PURPOSE: Reinitialize PipeWire for other apps (not fip-stream.sh)
+# NOTE: fip-stream.sh uses ALSA directly — doesn't depend on PipeWire
+# USE: Run this if PipeWire apps (spotify, vlc with pw output) break
+#
+# Sequence: ALSA reload → PipeWire restart → Realtek auto-detect → set default
 
 # 1. unmask services if masked / démasquer les services si nécessaire
 systemctl --user unmask pipewire pipewire-pulse wireplumber 2>/dev/null
@@ -24,10 +30,11 @@ SINK=$(pactl list sinks short | grep alsa_output | head -1 | awk '{print $2}')
 
 # 6. audio test / test audio
 speaker-test -t sine -f 1000 -l 1 &>/dev/null \
-    && echo "[✔] (ﾉ゜▽゜)ﾉ  Realtek OK" \
-    || echo "[✘] (╥_╥)  ALSA broken — check journalctl --user -u pipewire"
+    && echo "[✔] PipeWire OK (for desktop apps)" \
+    || echo "[✘] ALSA broken — check journalctl --user -u pipewire"
 
 # 7. enable autostart on boot / activer le démarrage automatique
 systemctl --user enable pipewire pipewire-pulse wireplumber 2>/dev/null
 
-echo "≡≡≡ヽ(゜∀゜)ノ  done! run: ./fip-stream.sh"
+echo "✔ PipeWire restored for desktop apps"
+echo "→ fip-stream.sh uses ALSA independently — no action needed"
