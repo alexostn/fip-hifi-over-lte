@@ -113,8 +113,8 @@ if [ -n "$URL" ]; then
         MPV_ARGS=(
             # --- audio -------------------------------------------------------
             --audio-channels=stereo
-            --ao=alsa                 # bypass PipeWire, use ALSA directly — avoids floatp conversion errors
-            --audio-format=float
+            --ao=alsa                 # ALSA backend is stable on weak LTE, supports int formats natively
+            --audio-format=s16        # ALSA supports s16 without format errors (float not supported by ALSA in practice)
             --audio-samplerate=48000  # matches FIP native rate
 
 
