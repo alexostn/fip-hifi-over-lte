@@ -1,5 +1,6 @@
 #!/bin/bash
 # ٩(◕‿◕)~*✲ FIP RADIO — mobile-stable HiFi stream v15
+# AUDIO: ALSA backend (s16 format) — stable on weak LTE, bypasses PipeWire
 # Diagnostics: JSONL + Prometheus textfile for node_exporter
 # Logs: ~/fip-diagnostics.jsonl | ~/.prom-textfile/fip_stream.prom | /tmp/fip-mpv-last.log
 
