@@ -113,9 +113,10 @@ if [ -n "$URL" ]; then
         MPV_ARGS=(
             # --- audio -------------------------------------------------------
             --audio-channels=stereo
-            # --audio-format=s16      # 16-bit integral — slight loss vs float, but avoids interruptions on weak LTE
-            --audio-format=float      # native PipeWire format, preserves quality; may cause interruptions if LTE signal weak (~1-2 bars)
+            --ao=alsa                 # bypass PipeWire, use ALSA directly — avoids floatp conversion errors
+            --audio-format=float
             --audio-samplerate=48000  # matches FIP native rate
+
 
 
 
