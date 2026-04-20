@@ -113,8 +113,11 @@ if [ -n "$URL" ]; then
         MPV_ARGS=(
             # --- audio -------------------------------------------------------
             --audio-channels=stereo
-            --audio-format=s16              # 16-bit — enough for AAC 192k
-            --audio-samplerate=48000        # matches FIP native rate
+            # --audio-format=s16      # 16-bit integral — slight loss vs float, but avoids interruptions on weak LTE
+            --audio-format=float      # native PipeWire format, preserves quality; may cause interruptions if LTE signal weak (~1-2 bars)
+            --audio-samplerate=48000  # matches FIP native rate
+
+
 
             # --- stats window ------------------------------------------------
             # window shows log paths + hint; Shift+I expands full audio stats
