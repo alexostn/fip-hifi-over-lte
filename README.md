@@ -80,6 +80,16 @@ Tested on Ubuntu 22.04 + PipeWire, external DAC via Onkyo receiver.
 Switch to `floatp` only if you add DSP processing.
 
 ---
+(◕‿◕) RF API Integration — Metadata Sync
+**Ce projet prépare l’intégration de l’API Radio France pour synchroniser les métadonnées live (titre, artiste, station) avec le flux audio.**
+
+Objectifs :
+- suivre le titre en cours via RF Open API
+- détecter changements de piste et désynchronisations  
+- logger events pour analyse (Prometheus-ready)
+- brique réutilisable pour MVP curation humaine (ft_transcendence)
+
+**Statut :** Accès API RF validé. Synchronisation metadata en cours.
 
 ## ( ･∀･)ﾉ━━━► What's inside
 
