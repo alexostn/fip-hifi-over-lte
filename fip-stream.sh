@@ -107,7 +107,9 @@ PROM
 
 if [ -n "$URL" ]; then
     echo "٩(◕‿◕) FIP 15 $NAME — 192kbps Hi-Fi (mobile-stable + diagnostics)"
-
+    echo "  log:   $JSONL"
+    echo "  prom:  $PROM_FILE"
+    echo "  mpv:   $MPV_LOG"
     while true; do
         SESSION_START=$(date +%s)
 
@@ -117,17 +119,6 @@ if [ -n "$URL" ]; then
             --ao=alsa                 # ALSA backend is stable on weak LTE, supports int formats natively
             --audio-format=s16        # ALSA supports s16 without format errors (float not supported by ALSA in practice)
             --audio-samplerate=48000  # matches FIP native rate
-
-
-
-
-            # --- stats window ------------------------------------------------
-            # window shows log paths + hint; Shift+I expands full audio stats
-            --force-window=yes
-            --geometry=610x700+0+0          # visible but compact, top-left
-            --title="FIP ${NAME} 192k HiFi"
-            --osd-font-size=28              # readable text size in window
-            --osd-msg1="( ˘・з・) FIP ${NAME} — 192kbps Hi-Fi\nlog:  ${JSONL}\nprom: ${PROM_FILE}\nmpv:  ${MPV_LOG}\n\nShift+I — sound parameters"
 
             # --- buffer: absorbs 1-3s LTE gaps silently ----------------------
             --audio-buffer=10.0
