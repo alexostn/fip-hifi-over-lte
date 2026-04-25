@@ -107,9 +107,11 @@ PROM
 
 if [ -n "$URL" ]; then
     echo "٩(◕‿◕) FIP 15 $NAME — 192kbps Hi-Fi (mobile-stable + diagnostics)"
+    echo " "
     echo "  log:   $JSONL"
     echo "  prom:  $PROM_FILE"
     echo "  mpv:   $MPV_LOG"
+    echo " "
     while true; do
         SESSION_START=$(date +%s)
 
@@ -144,7 +146,6 @@ if [ -n "$URL" ]; then
             --stream-lavf-o-append=user_agent='Mozilla/5.0 (compatible; fip-hifi-stream/15; LTE)'
 
             --log-file="$MPV_LOG"
-            --msg-level=all=warn,network=debug
         )
 
         mpv "${MPV_ARGS[@]}" "$URL"
@@ -170,3 +171,4 @@ fi
 # no-network events:  jq 'select(.cause == "no_network")' ~/fip-diagnostics.jsonl
 # dns stalls >500ms:  jq 'select(.dns_ms > 500)' ~/fip-diagnostics.jsonl
 # ————————————————————————————————————————————————————————————————————————————
+
