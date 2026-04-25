@@ -10,7 +10,7 @@ streaming FIP HiFi AAC 192kbps stable via connexion LTE instable.
 ---
 
 ## ≡≡≡ヽ(゜∀゜)ノ Quick start
-## [if no sudo and for other pre-install adjusments (゜.゜) look here>](hardware/FLATPACK_SAFE_PREINSTAL_WITHOUT_SUDO.md)
+## [if no sudo and for other pre-install adjusments    (゜.゜) look here>](hardware/FLATPACK_SAFE_PREINSTAL_WITHOUT_SUDO.md)
 
 ```bash
 curl -O https://raw.githubusercontent.com/alexostn/fip-hifi-over-lte/main/fip-stream.sh
