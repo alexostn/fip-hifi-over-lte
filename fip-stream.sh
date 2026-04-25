@@ -112,7 +112,8 @@ if [ -n "$URL" ]; then
     echo "  prom:  $PROM_FILE"
     echo "  mpv:   $MPV_LOG"
     echo " "
-    echo "  Shift+I to see detais (；゜゜)ノ " 
+    echo "  Shift+I to see detais (；゜゜)ノ "
+    
     while true; do
         SESSION_START=$(date +%s)
 
