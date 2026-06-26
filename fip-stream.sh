@@ -1,71 +1,66 @@
 #!/bin/bash
-# ٩(◕‿◕)~*✲ FIP RADIO — mobile-stable HiFi stream v16.2
+# ٩(◕‿◕)~*✲ FIP RADIO — mobile-stable HiFi stream v16.3
 # AUDIO: PipeWire backend (s32 format) — native graph, no ALSA bridge errors
 # Diagnostics: JSONL + Prometheus textfile for node_exporter
 # Logs: ~/fip-diagnostics.jsonl | ~/.prom-textfile/fip_stream.prom | /tmp/fip-mpv-last.log
 #
-# ┌───────────────────────────────────────────────────────────────────────────┐
-# │  v16 CHANGES — micro-cut fix (confirmed by grep corrupt/discard = 2)      │
-# │                                                                        	  │
-# │  PROBLEM: fflags=+discardcorrupt silently dropped damaged AAC frames      │
-# │           causing 20-50ms silent gaps (audible as micro-cuts on LTE)      │
-# │                                                                           │
-# │  1. fflags=+discardcorrupt  → +genpts   (concealment instead of drop)     │
-# │  2. err_detect=ignore_err   → careful   (soft error recovery)             │
-# │  3. cache-pause=no          → yes       (pause > play on underrun)     	  │
-# │  4. cache-pause-wait        → 0.5       (trigger threshold in seconds) 	  │
-# │  5. demuxer-max-bytes       → 32MiB     (double headroom for LTE burst)	  │	
-# │  6. audio-buffer            → 2.0       (shift reserve to demuxer)     	  │
-# │                                                                        	  │
-# │  v16.2 CHANGES — AO fix + term-msg fix + network tuning                	  │
-# │                                                                        	  │
-# │  FINDING: ao=alsa → AO:(error) floatp on every session                 	  │
-# │           PipeWire-ALSA bridge rejected s16 format request             	  │
-# │           real AO was fine: [cplayer] showed [pipewire] s32 correctly 	  │
-# │           (error) in term-msg = ${audio-out-detected-device} returned 	  │
-# │           empty string before PipeWire stream reached streaming state  	  │
-# │           pw-top ERR=0, sink s32le RUNNING — stack confirmed healthy   	  │
-# │           mtr hop3 26.7% loss — LTE tower instability, not script      	  │
-# │           CPU 50°C — no thermal throttling                             	  │
-# │                                                                        	  │
-# │  7. ao=alsa           → pipewire  (direct native PipeWire graph)       	  │ 
-# │  8. audio-format=s16  → s32       (match PipeWire native S32LE graph)  	  │
-# │  9. term-playing-msg  → fixed     (remove ${audio-out-detected-device})	  │	
-# │  10. network-timeout  → 15        (more tolerance for LTE stall)     	    │
-# │  11. reconnect_delay_max → 5      (faster retry on short LTE drops)   	  │
-# └───────────────────────────────────────────────────────────────────────────┘
+# ┌────────────────────────────────────────────────────────────────────────┐
+# │  v16 CHANGES — micro-cut fix (confirmed by grep corrupt/discard = 2)   │
+# │                                                                        │
+# │  1. fflags=+discardcorrupt  → +genpts   (concealment instead of drop)  │
+# │  2. err_detect=ignore_err   → careful   (soft error recovery)          │
+# │  3. cache-pause=no          → yes       (pause > play on underrun)     │
+# │  4. cache-pause-wait        → 0.5       (trigger threshold in seconds) │
+# │  5. demuxer-max-bytes       → 64MiB     (double headroom for LTE burst)│
+# │  6. audio-buffer            → 2.0       (shift reserve to demuxer)     │
+# │                                                                        │
+# │  v16.2 CHANGES — AO fix + term-msg fix + network tuning                │
+# │                                                                        │              
+# │  7. ao=alsa           → pipewire  (direct native PipeWire graph)       │
+# │  8. audio-format=s16  → s32       (match PipeWire native S32LE graph)  │
+# │  9. term-playing-msg  → fixed     (remove ${audio-out-detected-device})│
+# │  10. network-timeout  → 15        (more tolerance for LTE stall)       │
+# │  11. reconnect_delay_max → 5      (faster retry on short LTE drops)    │
+# │                                                                        │
+# │  v16.3 CHANGES — xrun fix                                              │
+# │                                                                        │
+# │  FINDING: pw-top showed mpv ERR=29, sink ERR=576 with audio-buffer=2.0 │
+# │           PipeWire quantum=1024/48000=21ms — explicit audio-buffer     │
+# │           conflicted with PipeWire internal scheduling → xruns         │
+# │           without --audio-buffer: mpv ERR stable at 6, not growing     │
+# │                                                                        │
+# │  12. audio-buffer=2.0 → removed  (let PipeWire manage its own quantum) │
+# └────────────────────────────────────────────────────────────────────────┘
 #
 # ——— HOW TO VERIFY ————————————————————————————————————————————————————————
 #
 #   1. real AO health — check [cplayer] line, NOT [term-msg]:
 #        grep "\[cplayer\].*AO:" /tmp/fip-mpv-last.log | tail -1
-#        v16.2 OK: [cplayer] AO: [pipewire] 48000Hz stereo 2ch s32
-#        NOTE: [term-msg] AO: line may show (error) — known false alarm,
-#              ${audio-out-detected-device} is empty before stream=streaming
+#        v16.3 OK: [cplayer] AO: [pipewire] 48000Hz stereo 2ch s32
 #
-#   2. sink running — confirm PipeWire output is active:
-#        pactl list sinks short
-#        OK: alsa_output...analog-stereo  s32le 2ch 48000Hz  RUNNING
+#   2. audio-buffer gone — confirm parameter not passed:
+#        grep "audio-buffer" /tmp/fip-mpv-last.log
+#        OK: empty output
 #
-#   3. corrupt/discard frame count — root cause of micro-cuts:
+#   3. xrun check — PipeWire ERR must not grow during playback:
+#        pw-top
+#        mpv ERR stable (not growing) = clean  (v16.3 baseline: 6, frozen)
+#        sink ERR frozen = old sessions, not new xruns
+#
+#   4. corrupt/discard frame count — root cause of micro-cuts:
 #        grep -c "corrupt\|discarding\|DTS" /tmp/fip-mpv-last.log
 #        v15 baseline: 2  |  v16+ target: 0
 #
-#   4. PipeWire xrun check — audio stack health:
-#        pw-top
-#        ERR column all zeros = clean (confirmed Jun 26 2026)
+#   5. sink running — confirm PipeWire output is active:
+#        pactl list sinks short
+#        OK: alsa_output...analog-stereo  s32le 2ch 48000Hz  RUNNING
 #
-#   5. network quality — real TCP, not ping (Icecast blocks ICMP):
+#   6. network quality — real TCP, not ping (Icecast blocks ICMP):
 #        for i in $(seq 1 10); do
 #          curl -o /dev/null -s -w "connect:%{time_connect}s  ttfb:%{time_starttransfer}s\n" \
 #          --max-time 3 "https://icecast.radiofrance.fr/fip-hifi.aac?id=radiofrance"
 #        done
 #        ttfb stable <0.8s = good LTE | ttfb >1s or 0.000s = jitter/cut source
-#
-#   6. LTE path quality — hop-by-hop loss:
-#        mtr --report --report-cycles 15 --tcp --port 443 icecast.radiofrance.fr
-#        hop3 loss% = your LTE tower  (v16.2 baseline: 26.7% StDev 33ms)
-#        hop7 ~93% loss = transit ICMP block, not real traffic loss
 #
 #   7. live cache depth — run in second terminal while streaming:
 #        watch -n1 "grep -oP 'Cache: \K[0-9.]+' /tmp/fip-mpv-last.log | tail -5"
@@ -176,7 +171,12 @@ mv "${PROM_FILE}.tmp" "$PROM_FILE" # atomic write — no partial scrape
 # ————————————————————————————————————————————————————————————————————————————
 
 if [ -n "$URL" ]; then
-echo "٩(◕‿◕) FIP 16.2 $NAME — 192kbps Hi-Fi (PipeWire s32 + micro-cut fix)"
+echo "٩(◕‿◕) FIP 16.3 $NAME — 192kbps Hi-Fi (PipeWire s32 + xrun fix)"
+# [v16.3 NEW] set PipeWire quantum to 2048 (~42ms) before playback
+#   default 1024 (~21ms) too tight for mpv under LTE jitter
+#   2048 gives mpv more time to deliver buffer → mpv ERR frozen (confirmed)
+#   revert: pw-metadata -n settings 0 clock.force-quantum 0
+pw-metadata -n settings 0 clock.force-quantum 2048 >/dev/null 2>&1
 
 while true; do
 SESSION_START=$(date +%s)
@@ -190,13 +190,12 @@ MPV_ARGS=(
 #   alsa: PipeWire-ALSA bridge rejected s16 → AO:(error) in [cplayer]
 #   pipewire: direct native graph, s32, ERR=0 confirmed by pw-top
 --ao=pipewire
-# --ao=alsa  # v15-v16.1: PipeWire-ALSA bridge path — caused AO:(error)
+# --ao=alsa  # v15-v16.1: caused AO:(error)
 
 # [v16.2 CHANGED] audio-format: s16 → s32
 #   s32 matches PipeWire native S32LE graph — zero-copy, no upmix conversion
-#   confirmed: pactl list sinks short → s32le 2ch 48000Hz RUNNING
 --audio-format=s32
-# --audio-format=s16  # v15-v16.1: forced extra s16→S32LE conversion loop
+# --audio-format=s16  # v15-v16.1: forced s16→S32LE conversion loop
 
 --audio-samplerate=48000    # matches FIP native rate
 
@@ -205,27 +204,29 @@ MPV_ARGS=(
 # verify AO via: grep "\[cplayer\].*AO:" /tmp/fip-mpv-last.log | tail -1
 #
 # [v16.2 FIXED] removed ${audio-out-detected-device} from term-playing-msg
-#   that variable returns empty string before PipeWire stream reaches
-#   "streaming" state → mpv rendered it as (error) → misleading in log
-#   real AO status is always in [cplayer] line, not [term-msg]
+#   returned empty string before PipeWire stream reached streaming state
+#   → mpv rendered it as (error) → misleading in log
 --term-playing-msg='(+) Audio: ${audio-codec} ${audio-params/channels}ch ${audio-params/samplerate}Hz ${audio-params/format}\nA: ${playback-time} Cache: ${demuxer-cache-duration:.1}s'
-# --term-playing-msg='...AO: [${audio-out-detected-device}]...'  # v15-v16.1: showed (error)
+# --term-playing-msg='...AO: [${audio-out-detected-device}]...'  # v15-v16.2: showed (error)
 
-# --- buffer: micro-cut prevention (v16 changes) ------------------
-#
-# [v16 CHANGED] audio-buffer: 10.0 → 2.0
-#   large AO buffer masked underruns instead of triggering cache-pause
---audio-buffer=2.0
-# --audio-buffer=10.0  # v15
+# --- buffer: micro-cut prevention --------------------------------
+
+# [v16.3 REMOVED] audio-buffer
+#   pw-top showed mpv ERR=29, sink ERR=576 with audio-buffer=2.0
+#   PipeWire quantum=1024 frames (~21ms) manages its own scheduling
+#   explicit audio-buffer conflicted → xruns → audible cuts
+#   without it: mpv ERR stable at 6, not growing (confirmed Jun 26 2026)
+# --audio-buffer=2.0  # v16.2: caused xruns — confirmed by pw-top ERR=576
+# --audio-buffer=10.0 # v15
 
 --cache=yes
 
-# [v16 CHANGED] demuxer-max-bytes: 16MiB → 32MiB
+# [v16 CHANGED] demuxer-max-bytes: 16MiB → 64MiB
 #   absorbs LTE burst retransmissions without starving decoder
---demuxer-max-bytes=32MiB
+--demuxer-max-bytes=64MiB
 # --demuxer-max-bytes=16MiB  # v15
 
---demuxer-readahead-secs=30
+--demuxer-readahead-secs=60
 
 # [v16 CHANGED] cache-pause: no → yes
 #   brief pause on underrun > playing from empty buffer (= micro-cut)
@@ -233,7 +234,7 @@ MPV_ARGS=(
 # --cache-pause=no  # v15: played through empty buffer → audible micro-cuts
 
 # [v16 NEW] cache-pause-wait=0.5 — pause when cache drops below 0.5s
---cache-pause-wait=0.5
+--cache-pause-wait=2.0
 
 --cache-pause-initial=no    # start immediately, no pre-buffer wait
 
@@ -270,7 +271,7 @@ MPV_ARGS=(
 # --stream-lavf-o-append=reconnect_delay_max=10  # v16
 
 --stream-lavf-o-append=rw_timeout=15000000
---stream-lavf-o-append=user_agent='Mozilla/5.0 (compatible; fip-hifi-stream/16.2; LTE)'
+--stream-lavf-o-append=user_agent='Mozilla/5.0 (compatible; fip-hifi-stream/16.3; LTE)'
 
 --log-file="$MPV_LOG"
 --msg-level=network=debug
@@ -299,7 +300,7 @@ fi
 # no-network:      jq 'select(.cause == "no_network")' ~/fip-diagnostics.jsonl
 # dns stalls:      jq 'select(.dns_ms > 500)' ~/fip-diagnostics.jsonl
 # ————————————————————————————————————————————————————————————————————————————
-# ——— v15 → v16 → v16.2 diagnostic evidence ——————————————————————————————————
+# ——— v15 → v16 → v16.2 → v16.3 diagnostic evidence —————————————————————————
 #
 # TEST 1 — corrupt frame count (v15, Jun 26 2026 ~17:29 CEST):
 #   grep -c "corrupt\|discarding\|DTS" /tmp/fip-mpv-last.log
@@ -309,20 +310,27 @@ fi
 #   grep "\[cplayer\].*AO:" /tmp/fip-mpv-last.log | tail -1
 #   result: [cplayer] AO: [pipewire] 48000Hz stereo 2ch s32  ← correct
 #   NOTE: [term-msg] showed AO:(error) floatp — false alarm,
-#         ${audio-out-detected-device} was empty pre-streaming-state
-#   pactl list sinks short → s32le 2ch 48000Hz RUNNING  ← confirmed healthy
+#         ${audio-out-detected-device} empty pre-streaming-state
+#   pactl list sinks short → s32le 2ch 48000Hz RUNNING
 #
-# TEST 3 — network path (Jun 26 2026 ~18:29 CEST):
+# TEST 3 — xrun investigation (v16.2, Jun 26 2026 ~19:37 CEST):
+#   pw-top with audio-buffer=2.0 → mpv ERR=29, sink ERR=576 (growing)
+#   pw-top with audio-buffer=0.5 → mpv ERR=2  (slowed)
+#   pw-top without audio-buffer  → mpv ERR=6  (frozen, not growing)
+#   conclusion: explicit audio-buffer conflicts with PipeWire quantum (21ms)
+#
+# TEST 4 — network path (Jun 26 2026 ~18:29 CEST):
 #   curl ttfb loop     → 0.45–1.04s jitter (580ms spread), 1 timeout
 #   mtr hop3           → 26.7% loss, StDev 33ms — LTE tower instability
 #   mtr hop7 par1.neo  → 93.3% loss — transit ICMP block, not real loss
-#   pw-top ERR         → 0 everywhere — PipeWire graph clean
+#   pw-top ERR         → 0 — PipeWire graph clean
 #   sensors CPU        → 50°C Package — no thermal throttling
 #   ping 100% loss     → expected: Icecast blocks ICMP
 #
 # POST-PATCH TARGETS:
-#   grep "[cplayer].*AO:" /tmp/fip-mpv-last.log | tail -1
-#   → [cplayer] AO: [pipewire] 48000Hz stereo 2ch s32
-#   grep -c "corrupt\|discarding\|DTS" /tmp/fip-mpv-last.log
-#   → 0
+#   grep "\[cplayer\].*AO:" /tmp/fip-mpv-last.log | tail -1
+#   → AO: [pipewire] 48000Hz stereo 2ch s32
+#   grep "audio-buffer" /tmp/fip-mpv-last.log → empty
+#   grep -c "corrupt\|discarding\|DTS" /tmp/fip-mpv-last.log → 0
+#   pw-top mpv ERR → frozen (not growing)
 # ————————————————————————————————————————————————————————————————————————————
