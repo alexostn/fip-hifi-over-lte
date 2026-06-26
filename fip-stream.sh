@@ -7,10 +7,10 @@
 # ┌───────────────────────────────────────────────────────────────────────────┐
 # │  v16 CHANGES — micro-cut fix (confirmed by grep corrupt/discard = 2)      │
 # │                                                                        	  │
-# │  PROBLEM: fflags=+discardcorrupt silently dropped damaged AAC frames    	│
-# │           causing 20-50ms silent gaps (audible as micro-cuts on LTE)    	│
-# │                                                                         	│
-# │  1. fflags=+discardcorrupt  → +genpts   (concealment instead of drop)    	│
+# │  PROBLEM: fflags=+discardcorrupt silently dropped damaged AAC frames       	│
+# │           causing 20-50ms silent gaps (audible as micro-cuts on LTE)       	│
+# │                                                                            	│
+# │  1. fflags=+discardcorrupt  → +genpts   (concealment instead of drop)      	│
 # │  2. err_detect=ignore_err   → careful   (soft error recovery)             │
 # │  3. cache-pause=no          → yes       (pause > play on underrun)     	  │
 # │  4. cache-pause-wait        → 0.5       (trigger threshold in seconds) 	  │
