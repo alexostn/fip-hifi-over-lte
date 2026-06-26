@@ -4,36 +4,36 @@
 # Diagnostics: JSONL + Prometheus textfile for node_exporter
 # Logs: ~/fip-diagnostics.jsonl | ~/.prom-textfile/fip_stream.prom | /tmp/fip-mpv-last.log
 #
-# ┌─────────────────────────────────────────────────────────────────────────┐
-# │  v16 CHANGES — micro-cut fix (confirmed by grep corrupt/discard = 2)   │
-# │                                                                         │
-# │  PROBLEM: fflags=+discardcorrupt silently dropped damaged AAC frames    │
-# │           causing 20-50ms silent gaps (audible as micro-cuts on LTE)   │
-# │                                                                         │
-# │  1. fflags=+discardcorrupt  → +genpts   (concealment instead of drop)  │
-# │  2. err_detect=ignore_err   → careful   (soft error recovery)          │
-# │  3. cache-pause=no          → yes       (pause > play on underrun)     │
-# │  4. cache-pause-wait        → 0.5       (trigger threshold in seconds) │
-# │  5. demuxer-max-bytes       → 32MiB     (double headroom for LTE burst)│
-# │  6. audio-buffer            → 2.0       (shift reserve to demuxer)     │
-# │                                                                         │
-# │  v16.2 CHANGES — AO fix + term-msg fix + network tuning                │
-# │                                                                         │
-# │  FINDING: ao=alsa → AO:(error) floatp on every session                 │
-# │           PipeWire-ALSA bridge rejected s16 format request             │
-# │           real AO was fine: [cplayer] showed [pipewire] s32 correctly  │
-# │           (error) in term-msg = ${audio-out-detected-device} returned  │
-# │           empty string before PipeWire stream reached streaming state  │
-# │           pw-top ERR=0, sink s32le RUNNING — stack confirmed healthy   │
-# │           mtr hop3 26.7% loss — LTE tower instability, not script      │
-# │           CPU 50°C — no thermal throttling                             │
-# │                                                                         │
-# │  7. ao=alsa           → pipewire  (direct native PipeWire graph)       │
-# │  8. audio-format=s16  → s32       (match PipeWire native S32LE graph)  │
-# │  9. term-playing-msg  → fixed     (remove ${audio-out-detected-device})│
-# │  10. network-timeout  → 15        (more tolerance for LTE stall)       │
-# │  11. reconnect_delay_max → 5      (faster retry on short LTE drops)    │
-# └─────────────────────────────────────────────────────────────────────────┘
+# ┌─────────────────────────────────────────────────────────────────────────────┐
+# │  v16 CHANGES — micro-cut fix (confirmed by grep corrupt/discard = 2)	│
+# │                                                                        	│
+# │  PROBLEM: fflags=+discardcorrupt silently dropped damaged AAC frames    	│
+# │           causing 20-50ms silent gaps (audible as micro-cuts on LTE)    	│
+# │                                                                         	│
+# │  1. fflags=+discardcorrupt  → +genpts   (concealment instead of drop)  	│
+# │  2. err_detect=ignore_err   → careful   (soft error recovery)          	│
+# │  3. cache-pause=no          → yes       (pause > play on underrun)     	│
+# │  4. cache-pause-wait        → 0.5       (trigger threshold in seconds) 	│
+# │  5. demuxer-max-bytes       → 32MiB     (double headroom for LTE burst)	│	
+# │  6. audio-buffer            → 2.0       (shift reserve to demuxer)     	│
+# │                                                                        	│
+# │  v16.2 CHANGES — AO fix + term-msg fix + network tuning                	│
+# │                                                                        	│
+# │  FINDING: ao=alsa → AO:(error) floatp on every session                 	│
+# │           PipeWire-ALSA bridge rejected s16 format request             	│
+# │           real AO was fine: [cplayer] showed [pipewire] s32 correctly 	│
+# │           (error) in term-msg = ${audio-out-detected-device} returned 	│
+# │           empty string before PipeWire stream reached streaming state  	│
+# │           pw-top ERR=0, sink s32le RUNNING — stack confirmed healthy   	│
+# │           mtr hop3 26.7% loss — LTE tower instability, not script      	│
+# │           CPU 50°C — no thermal throttling                             	│
+# │                                                                        	│
+# │  7. ao=alsa           → pipewire  (direct native PipeWire graph)       	│
+# │  8. audio-format=s16  → s32       (match PipeWire native S32LE graph)  	│
+# │  9. term-playing-msg  → fixed     (remove ${audio-out-detected-device})	│	
+# │  10. network-timeout  → 15        (more tolerance for LTE stall)     	│
+# │  11. reconnect_delay_max → 5      (faster retry on short LTE drops)   	│
+# └─────────────────────────────────────────────────────────────────────────────┘
 #
 # ——— HOW TO VERIFY ————————————————————————————————————————————————————————
 #
