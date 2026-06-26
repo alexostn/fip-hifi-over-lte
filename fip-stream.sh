@@ -237,3 +237,13 @@ fi
 #   grep -c "corrupt\|discarding\|DTS" /tmp/fip-mpv-last.log
 #   → expected: 0
 # ————————————————————————————————————————————————————————————————————————————
+#  fix(audio): eliminate micro-cuts on weak LTE — v16
+
+#  Root cause confirmed via mpv log (2 corrupt/discard events on v15):
+#  fflags=+discardcorrupt silently dropped damaged AAC frames (~20-50ms gaps).
+
+#  - fflags: +discardcorrupt → +genpts (concealment instead of frame drop)
+#  - err_detect: ignore_err → careful (soft recovery)
+#  - cache-pause: no → yes + cache-pause-wait=0.5s (pause > play on underrun)
+#  - demuxer-max-bytes: 16MiB → 32MiB (headroom for LTE burst)
+#  - audio-buffer: 10.0 → 2.0s (shift reserve to demuxer layer)
