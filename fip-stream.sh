@@ -176,11 +176,29 @@ mv "${PROM_FILE}.tmp" "$PROM_FILE" # atomic write — no partial scrape
 
 if [ -n "$URL" ]; then
 echo "٩(◕‿◕) FIP 16.3 $NAME — 192kbps Hi-Fi (PipeWire s32 + xrun fix)"
-# [v16.3 NEW] set PipeWire quantum to 2048 (~42ms) before playback
-#   default 1024 (~21ms) too tight for mpv under LTE jitter
-#   2048 gives mpv more time to deliver buffer → mpv ERR frozen (confirmed)
-#   revert: pw-metadata -n settings 0 clock.force-quantum 0
-pw-metadata -n settings 0 clock.force-quantum 2048 >/dev/null 2>&1
+# [v18] Global PipeWire quantum — 8192 frames (~170 ms @ 48 kHz).
+#
+#   NOT a stream-stability tweak. System-wide fix for clicks and pops in
+#   browser audio: Chromium and Firefox feed the graph in ~10 ms chunks, and
+#   a narrow quantum underruns on any scheduler hiccup.
+#
+#   REQUIRES default.clock.max-quantum >= 8192 in
+#   ~/.config/pipewire/pipewire.conf.d/51-latency.conf. Above that ceiling
+#   the value is silently clamped and pw-top keeps showing the old QUANT —
+#   which is why manual pw-metadata experiments appeared to be ignored: this
+#   line overwrote them on every launch.
+#
+#   Cost: ~170 ms of output latency. Fine for radio and background music,
+#   wrong for games, calls or lip-sync. Halve to 4096 if that matters.
+#
+#   Scope: global, affects every client, NOT reverted on exit — it persists
+#   until PipeWire restarts.
+#   Revert: pw-metadata -n settings 0 clock.force-quantum 0
+#   Verify: pw-metadata -n settings 0 | grep quantum
+#
+#   NOTE: near no-op on a Bluetooth sink — the bluez node is itself the
+#   driver and runs its own quantum regardless.
+pw-metadata -n settings 0 clock.force-quantum 8192 >/dev/null 2>&1
 
 while true; do
 SESSION_START=$(date +%s)
@@ -237,7 +255,7 @@ MPV_ARGS=(
 # --cache-pause=no  # v15: played through empty buffer → audible micro-cuts
 
 # [v16 NEW] cache-pause-wait=0.5 — pause when cache drops below 0.5s
---cache-pause-wait=2.0
+--cache-pause-wait=0.5
 
 --cache-pause-initial=no    # start immediately, no pre-buffer wait
 
