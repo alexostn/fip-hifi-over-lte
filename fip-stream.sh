@@ -295,7 +295,9 @@ MPV_ARGS=(
 --stream-lavf-o-append=user_agent='Mozilla/5.0 (compatible; fip-hifi-stream/16.3; LTE)'
 
 --log-file="$MPV_LOG"
---msg-level=network=debug
+# debug writes hundreds of MB over a multi-hour session — raise back to
+# debug only while chasing a specific drop.
+--msg-level=network=warn
 )
 
 mpv "${MPV_ARGS[@]}" "$URL"
