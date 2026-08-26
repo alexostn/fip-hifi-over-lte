@@ -3,7 +3,7 @@
 #   FIP_OUT=analog   (default) built-in ALSA sink, tuned in v16.3
 #   FIP_OUT=bt                 A2DP/LDAC, needs FIP_BT_MAC
 #
-# Exports OUT_ARGS[] for mpv. Rationale for every flag: docs/TUNING.md
+# Exports OUT_ARGS[] for mpv. Rationale for every flag: hardware/BLUETOOTH_LDAC.md
 
 FIP_OUT="${FIP_OUT:-analog}"
 OUT_ARGS=()

@@ -4,7 +4,7 @@
 #   ./audio-check.sh          state only, silent
 #   ./audio-check.sh --tone   + sine 440 and pink noise (stop playback first)
 #
-# Interpretation table: docs/TUNING.md
+# Interpretation table: hardware/BLUETOOTH_LDAC.md
 
 set -u
 [ -f ~/.config/fip/env ] && . ~/.config/fip/env
