@@ -86,6 +86,10 @@ STATIONS[cultes]="https://icecast.radiofrance.fr/fipcultes-hifi.aac?id=radiofran
 NAME="${1:-fip}"
 URL="${STATIONS[$NAME]}"
 
+SELF="$(readlink -f "$0")"
+. "$(dirname "$SELF")/lib/output.sh"
+out_preflight
+
 # ——( ˘・з・)—— DNS pre-warm via Quad9 ————————————————————————————————————————
 HOST=$(echo "$URL" | sed 's|https://||' | cut -d'/' -f1)
 dig +short +time=2 +tries=1 "$HOST" @9.9.9.9 >/dev/null 2>&1 &
@@ -189,12 +193,11 @@ MPV_ARGS=(
 # [v16.2 CHANGED] ao: alsa → pipewire
 #   alsa: PipeWire-ALSA bridge rejected s16 → AO:(error) in [cplayer]
 #   pipewire: direct native graph, s32, ERR=0 confirmed by pw-top
---ao=pipewire
+"${OUT_ARGS[@]}"
 # --ao=alsa  # v15-v16.1: caused AO:(error)
 
 # [v16.2 CHANGED] audio-format: s16 → s32
 #   s32 matches PipeWire native S32LE graph — zero-copy, no upmix conversion
---audio-format=s32
 # --audio-format=s16  # v15-v16.1: forced s16→S32LE conversion loop
 
 --audio-samplerate=48000    # matches FIP native rate
