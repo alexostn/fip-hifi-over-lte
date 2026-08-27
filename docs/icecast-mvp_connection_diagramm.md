@@ -1,6 +1,6 @@
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                      FIP RADIO  ──  mpv PIPELINE                           ║
+║                      FIP RADIO  ──  mpv PIPELINE                             ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
   ┌─────────────────────────────────┐
@@ -63,7 +63,7 @@
   ║  DEMUXER CACHE  (mpv internal ring-buffer)       ║
   ║                                                  ║
   ║  --cache=yes                                     ║
-  ║  --demuxer-max-bytes=8MiB  ≈ 5 min of audio     ║
+  ║  --demuxer-max-bytes=8MiB  ≈ 5 min of audio      ║
   ║  --demuxer-readahead-secs=20  read 20s ahead     ║
   ║                                                  ║
   ║  [============================·····] ←write      ║
