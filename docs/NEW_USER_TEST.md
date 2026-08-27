@@ -147,6 +147,10 @@ Both required tests passed on first try, no changes needed to
 ```bash
 rm -rf /tmp/newuser-test
 ```
+ch◔ck
+```bash
+ls /tmp/newuser-test
+```
 
 `/tmp` is cleared on reboot regardless, but there's no reason to leave a
 cloned copy sitting around if you're done with it sooner.
