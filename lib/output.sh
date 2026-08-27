@@ -15,6 +15,10 @@ _out_analog() {
 }
 
 _out_bt() {
+    # ◐ take FIP_BT_MAC · ◐ if empty, stop · ◐ say this exact thing
+    #   ":?" is bash's built-in "required or die" check — not a loop, not an
+    #   if, just: read the variable, and if it's unset, print the message and
+    #   exit right here. The leading ":" is a no-op, only there to host the check.
     : "${FIP_BT_MAC:?FIP_OUT=bt requires FIP_BT_MAC (see config/env.example)}"
 
     local id="${FIP_BT_MAC//:/_}"
