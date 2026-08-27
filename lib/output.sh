@@ -15,11 +15,11 @@ _out_analog() {
 }
 
 _out_bt() {
-    # ◐ take FIP_BT_MAC · ◐ if empty, stop · ◐ say this exact thing
-    #   ":?" is bash's built-in "required or die" check — not a loop, not an
-    #   if, just: read the variable, and if it's unset, print the message and
-    #   exit right here. The leading ":" is a no-op, only there to host the check.
-    : "${FIP_BT_MAC:?FIP_OUT=bt requires FIP_BT_MAC (see config/env.example)}"
+    # ◐ no MAC set → stop with a plain message instead of a raw bash error
+    if [ -z "$FIP_BT_MAC" ]; then
+        echo "No Bluetooth speaker configured (◔_◕ .･ﾟ✧) Copy config/env.example, fill in your speaker's MAC, then run again."
+        exit 1
+    fi
 
     local id="${FIP_BT_MAC//:/_}"
     BT_CARD="bluez_card.${id}"
