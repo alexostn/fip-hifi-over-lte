@@ -86,6 +86,9 @@ STATIONS[cultes]="https://icecast.radiofrance.fr/fipcultes-hifi.aac?id=radiofran
 NAME="${1:-fip}"
 URL="${STATIONS[$NAME]}"
 
+# exit cleanly on Ctrl+C / kill instead of letting the reconnect loop restart mpv
+trap 'exit 0' INT TERM
+
 SELF="$(readlink -f "$0")"
 . "$(dirname "$SELF")/lib/output.sh"
 out_preflight
@@ -100,6 +103,8 @@ JSONL="${HOME}/fip-diagnostics.jsonl"
 PROM_DIR="${HOME}/.prom-textfile"
 PROM_FILE="${PROM_DIR}/fip_stream.prom"
 MPV_LOG="/tmp/fip-mpv-last.log"
+# per-session log, not cumulative — truncate so old sessions don't linger
+: > "$MPV_LOG"
 mkdir -p "$PROM_DIR"
 # ————————————————————————————————————————————————————————————————————————————
 
