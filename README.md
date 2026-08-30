@@ -157,4 +157,20 @@ tail -f ~/fip-reconnects.log
 sudo apt install mpv dnsutils
 ```
 
+**`[ao] Failed to initialize audio driver 'pipewire'`?** `lib/output.sh` sets
+`--ao=pipewire,pulse,alsa` — mpv tries each in order, so this shows up as a
+harmless first attempt when the PipeWire graph has no audio nodes (e.g. a
+standalone `pulseaudio` daemon owns the card instead of `pipewire-pulse`).
+Confirm the real output with `grep AO: /tmp/fip-mpv-last.log`.
+
+**TODO — diagnosing a no-audio machine from scratch:**
+1. `pactl info | grep "Server Name"` — a real `pulseaudio` server here (not
+   `PulseAudio (on PipeWire ...)`) means bare PipeWire has no bridge.
+2. `pw-cli list-objects Node | grep -B2 'media.class.*Audio'` — empty output
+   means PipeWire's own graph has no audio nodes to attach to.
+3. `mpv --ao=pulse ...` / `--ao=alsa ...` — confirm which backend actually
+   produces sound on this machine.
+4. Reorder/trim the `--ao=` priority list in `lib/output.sh` to put the
+   working backend(s) first.
+
 Tested on Ubuntu 22.04 · fip-stream v14 · Radio France HiFi AAC 192kbps · Onkyo external DAC

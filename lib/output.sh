@@ -10,7 +10,11 @@ OUT_ARGS=()
 
 _out_analog() {
     # s32 matches the PipeWire ALSA graph — zero conversion (v16.2)
-    OUT_ARGS=( --ao=pipewire --audio-format=s32 --volume=100 )
+    # ao list: pipewire first, but fall back to pulse/alsa when the
+    # PipeWire graph has no audio nodes (e.g. a standalone pulseaudio
+    # daemon owns the sound card and bare pipewire has nothing to attach
+    # to) — mpv tries each in order and keeps the first that initializes.
+    OUT_ARGS=( --ao=pipewire,pulse,alsa --audio-format=s32 --volume=100 )
     echo "(⌐■_■) analog · S32LE 48000"
 }
 
@@ -43,7 +47,7 @@ _out_bt() {
 
     if [ -z "$codec" ]; then
         echo "(⊙_⊙) no BT sink — falling back to default"
-        OUT_ARGS=( --ao=pipewire --volume=100 )
+        OUT_ARGS=( --ao=pipewire,pulse,alsa --volume=100 )
         return
     fi
 
