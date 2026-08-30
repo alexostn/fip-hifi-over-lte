@@ -1,4 +1,4 @@
-fip-aliases
+# fip-aliases
 # ٩(◕‿◕)~*✲ FIP aliases — add to ~/.bashrc or ~/.zshrc
 # source this file: echo 'source ~/fip-hifi-over-lte/fip-aliases.sh' >> ~/.bashrc
 
