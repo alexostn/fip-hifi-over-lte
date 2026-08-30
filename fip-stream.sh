@@ -87,7 +87,14 @@ NAME="${1:-fip}"
 URL="${STATIONS[$NAME]}"
 
 # exit cleanly on Ctrl+C / kill instead of letting the reconnect loop restart mpv
-trap 'exit 0' INT TERM
+#
+# `mpv` here is a flatpak shim (exec flatpak run --user io.mpv.Mpv) — the real
+# player runs two bwrap layers deep. Terminal SIGINT to the process group
+# doesn't reliably reach a sandboxed grandchild that far down, so kill the
+# tracked PID directly instead of trusting group signal propagation.
+MPV_PID=""
+cleanup() { [ -n "$MPV_PID" ] && kill "$MPV_PID" 2>/dev/null; exit 0; }
+trap cleanup INT TERM
 
 SELF="$(readlink -f "$0")"
 . "$(dirname "$SELF")/lib/output.sh"
@@ -305,8 +312,11 @@ MPV_ARGS=(
 --msg-level=network=warn
 )
 
-mpv "${MPV_ARGS[@]}" "$URL"
+mpv "${MPV_ARGS[@]}" "$URL" &
+MPV_PID=$!
+wait "$MPV_PID"
 EXIT_CODE=$?
+MPV_PID=""
 
 SESSION_END=$(date +%s)
 SESSION_DURATION=$((SESSION_END - SESSION_START))
