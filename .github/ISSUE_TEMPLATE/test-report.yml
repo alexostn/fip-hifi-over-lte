@@ -20,8 +20,10 @@ body:
       description: Which document did you follow?
       options:
         - "Install without sudo (Flatpak)"
+        - "Install with apt (own machine)"
         - "Bluetooth / LDAC"
-        - "Both"
+        - "macOS / non-PipeWire (exploratory)"
+        - "Both install and Bluetooth"
         - "Only read the documentation, did not run it"
     validations:
       required: true
@@ -30,7 +32,7 @@ body:
     id: version
     attributes:
       label: Version or tag
-      description: The release tag or commit you tested.
+      description: Visible in the URL you followed, or in the header of fip-stream.sh.
       placeholder: "v16.3"
     validations:
       required: true
