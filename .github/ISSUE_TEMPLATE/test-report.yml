@@ -1,0 +1,107 @@
+name: Test report
+description: Result of running one of the documented scenarios, including a successful one.
+title: "[test] "
+labels: ["test-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ◥(◔ ◔)◤ ◢(◕ ◕)◣ ◥(◔ ◔)◤ ◢(◕ ◕)◣ ◥(◔ ◔)◤ ◢(◕ ◕)◣ ◥(◔ ◔)◤
+
+        Thanks for testing. A report is useful even if everything worked.
+
+        **Please remove passwords, tokens, IP addresses, private Wi-Fi names
+        and MAC addresses** from any output or screenshot before submitting.
+
+  - type: dropdown
+    id: scenario
+    attributes:
+      label: Scenario
+      description: Which document did you follow?
+      options:
+        - "Install without sudo (Flatpak)"
+        - "Bluetooth / LDAC"
+        - "Both"
+        - "Only read the documentation, did not run it"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version or tag
+      description: The release tag or commit you tested.
+      placeholder: "v16.3"
+    validations:
+      required: true
+
+  - type: input
+    id: system
+    attributes:
+      label: System
+      description: OS and version, plus audio stack if you know it.
+      placeholder: "Ubuntu 24.04, PipeWire 1.0.5"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: network
+    attributes:
+      label: Network
+      options:
+        - "Wi-Fi"
+        - "LTE hotspot"
+        - "Ethernet"
+        - "Other / unstable"
+    validations:
+      required: true
+
+  - type: input
+    id: output
+    attributes:
+      label: Audio output
+      description: Built-in, wired, or Bluetooth device model. No MAC addresses.
+      placeholder: "Bluetooth, Sony SRS-XP500"
+
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result
+      options:
+        - "Worked as documented"
+        - "Worked, but the instructions were unclear somewhere"
+        - "Partially worked"
+        - "Did not work"
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output or screenshot
+      description: Last lines of any error, with personal data removed.
+      render: shell
+
+  - type: input
+    id: credit
+    attributes:
+      label: Credit (optional)
+      description: Name or handle to list in TESTED_ENVIRONMENTS.md. Leave empty to stay anonymous.
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Before submitting
+      options:
+        - label: I removed passwords, tokens, IP addresses, private Wi-Fi names and MAC addresses.
+          required: true
+        - label: I ran this only on a device where I am allowed to install or run software.
+          required: true
