@@ -173,4 +173,4 @@ Confirm the real output with `grep AO: /tmp/fip-mpv-last.log`.
 4. Reorder/trim the `--ao=` priority list in `lib/output.sh` to put the
    working backend(s) first.
 
-Tested on Ubuntu 22.04 · fip-stream v14 · Radio France HiFi AAC 192kbps · Onkyo external DAC
+Tested on Ubuntu 22.04 · fip-stream v16.4 · Radio France HiFi AAC 192kbps · Onkyo external DAC
