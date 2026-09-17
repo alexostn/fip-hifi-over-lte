@@ -1,5 +1,5 @@
 #!/bin/bash
-# ٩(◕‿◕)~*✲ FIP RADIO — mobile-stable HiFi stream v16.3
+# ٩(◕‿◕)~*✲ FIP RADIO — mobile-stable HiFi stream v16.4
 # AUDIO: PipeWire backend (s32 format) — native graph, no ALSA bridge errors
 # Diagnostics: JSONL + Prometheus textfile for node_exporter
 # Logs: ~/fip-diagnostics.jsonl | ~/.prom-textfile/fip_stream.prom | /tmp/fip-mpv-last.log
@@ -93,8 +93,46 @@ URL="${STATIONS[$NAME]}"
 # doesn't reliably reach a sandboxed grandchild that far down, so kill the
 # tracked PID directly instead of trusting group signal propagation.
 MPV_PID=""
-cleanup() { [ -n "$MPV_PID" ] && kill "$MPV_PID" 2>/dev/null; exit 0; }
+PW_QUANTUM_WANT="${FIP_QUANTUM:-8192}"
+PW_QUANTUM_SAVED=""
+
+pw_quantum_read() {
+    pw-metadata -n settings 2>/dev/null \
+        | grep "clock.$1'" | grep -oE "value:'[0-9]+'" | grep -oE '[0-9]+'
+}
+
+pw_quantum_setup() {
+    command -v pw-metadata >/dev/null 2>&1 || return 0
+    if command -v pactl >/dev/null 2>&1; then
+        pactl info 2>/dev/null | grep -q "Server Name.*PipeWire" || {
+            echo "(゜.゜) PipeWire is not the audio server - leaving quantum alone"
+            return 0
+        }
+    fi
+    local max
+    max=$(pw_quantum_read max-quantum)
+    if [ -n "$max" ] && [ "$PW_QUANTUM_WANT" -gt "$max" ] 2>/dev/null; then
+        echo "(゜.゜) quantum ${PW_QUANTUM_WANT} exceeds max-quantum ${max} - clamping"
+        PW_QUANTUM_WANT="$max"
+    fi
+    PW_QUANTUM_SAVED=$(pw_quantum_read force-quantum)
+    [ -n "$PW_QUANTUM_SAVED" ] || PW_QUANTUM_SAVED=0
+    pw-metadata -n settings 0 clock.force-quantum "$PW_QUANTUM_WANT" >/dev/null 2>&1
+}
+
+pw_quantum_restore() {
+    [ -n "$PW_QUANTUM_SAVED" ] || return 0
+    pw-metadata -n settings 0 clock.force-quantum "$PW_QUANTUM_SAVED" >/dev/null 2>&1
+    PW_QUANTUM_SAVED=""
+}
+
+cleanup() {
+    [ -n "$MPV_PID" ] && kill "$MPV_PID" 2>/dev/null
+    pw_quantum_restore
+    exit 0
+}
 trap cleanup INT TERM
+trap pw_quantum_restore EXIT
 
 SELF="$(readlink -f "$0")"
 . "$(dirname "$SELF")/lib/output.sh"
@@ -187,7 +225,7 @@ mv "${PROM_FILE}.tmp" "$PROM_FILE" # atomic write — no partial scrape
 # ————————————————————————————————————————————————————————————————————————————
 
 if [ -n "$URL" ]; then
-echo "٩(◕‿◕) FIP 16.3 $NAME — 192kbps Hi-Fi (PipeWire s32 + xrun fix)"
+echo "٩(◕‿◕) FIP 16.4 $NAME — 192kbps Hi-Fi (PipeWire s32 + xrun fix)"
 # [v18] Global PipeWire quantum — 8192 frames (~170 ms @ 48 kHz).
 #
 #   NOT a stream-stability tweak. System-wide fix for clicks and pops in
@@ -210,7 +248,7 @@ echo "٩(◕‿◕) FIP 16.3 $NAME — 192kbps Hi-Fi (PipeWire s32 + xrun fix)"
 #
 #   NOTE: near no-op on a Bluetooth sink — the bluez node is itself the
 #   driver and runs its own quantum regardless.
-pw-metadata -n settings 0 clock.force-quantum 8192 >/dev/null 2>&1
+pw_quantum_setup
 
 while true; do
 SESSION_START=$(date +%s)
