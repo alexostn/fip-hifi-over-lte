@@ -182,8 +182,9 @@ Things that turned out to be wrong, kept on purpose.
   and a stable non-growing ERR=6 with the flag absent. An explicit buffer
   fights PipeWire's own quantum (1024, ~21 ms).
 - **`--audio-format=s16` — changed to `s32` in v16.2.** Forcing s16 created a
-  conversion loop into the native S32LE graph. It is also not applied at all on
-  the Pulse path, where output comes out as float.
+  conversion loop into the native S32LE graph. The flag does apply on the
+  `pulse` fallback path too — an early report suggested otherwise, but the
+  `AO:` line showed `s32` there as well.
 - **`--ao=alsa` — replaced by `pipewire,pulse,alsa`.** The ALSA bridge rejected
   s16 and bypassed the graph.
 - **`force-quantum` above `max-quantum` — silently ineffective.** Metadata
