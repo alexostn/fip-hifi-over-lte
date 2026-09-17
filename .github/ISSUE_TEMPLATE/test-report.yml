@@ -128,9 +128,12 @@ body:
   - type: input
     id: credit
     attributes:
-      label: Name or GitHub handle (optional)
-      description: Only fill this if you want to be named. Leave empty and the report stays anonymous.
-
+      label: Name or GitHub handle for the credits (optional)
+      description: >-
+        Note that GitHub always shows your account as the author of an issue —
+        that part isn't anonymous. This field is only about whether I also list
+        you in TESTED_ENVIRONMENTS.md. If you'd rather not appear at all,
+        message me the result instead and I'll file it without your handle.
   - type: checkboxes
     id: consent
     attributes:
