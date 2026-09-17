@@ -19,7 +19,7 @@ streaming FIP HiFi AAC 192kbps stable via connexion LTE instable.
 ## [if no sudo and for other pre-install adjustments    (゜.゜) look here>](hardware/FLATPACK_SAFE_PREINSTAL_WITHOUT_SUDO.md)
 
 ```bash
-git clone --branch v16.3.1 --depth 1 \
+git clone --branch v16.4 --depth 1 \
   https://github.com/alexostn/fip-hifi-over-lte.git
 cd fip-hifi-over-lte
 less fip-stream.sh lib/output.sh   # one bash file plus an output profile
@@ -193,6 +193,16 @@ Things that turned out to be wrong, kept on purpose.
   into a graph nothing uses, and left set after exit. A patch for v16.4 saves
   and restores it and skips the write when PipeWire is not the audio server;
   not yet released, it needs testing on a PipeWire machine first.
+- **`--demuxer-readahead-secs=60` is unreachable on a live stream.** Icecast
+  sends in real time, so there is no future to read ahead into. Measured on
+  two machines: the cache fills to ~3.2s in the first second and stays there.
+  The real cushion against an outage is ~3s, not 60. The flag is a ceiling,
+  not a target.
+- **Is the quantum setting needed at all?** Open. Where PulseAudio owns the
+  card it changes nothing. On a PipeWire machine its effect has never been
+  measured separately from the other settings. A `pw-top` comparison with and
+  without `force-quantum` would settle it — until then this is a flag kept on
+  reasoning, not on evidence.
 - **LDAC profile** is reported as bare `a2dp-sink`; `a2dp-sink-ldac` returns
   *No such entity*.
 
@@ -343,4 +353,4 @@ MIT — see [LICENSE](LICENSE).
 ---
 
 Tested on Ubuntu 24.04 · also on a managed 22.04 lab machine ·
-fip-stream v16.3 · Radio France HiFi AAC 192kbps · Onkyo external DAC
+fip-stream v16.4 · Radio France HiFi AAC 192kbps · Onkyo external DAC
