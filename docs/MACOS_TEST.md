@@ -1,49 +1,21 @@
 # macOS test
 
-The script does not run on macOS yet. This page is the test that does.
+The script is Linux-only for now. This page is what a Mac can test: whether
+the stream comes back on its own after the connection drops.
 
-## What this tests
+10 minutes. Nothing is installed except mpv, and nothing is configured.
 
-The portable half of the project: buffering, network timeout, and whether an
-Icecast stream recovers on its own after the connection drops. That logic
-lives in mpv and ffmpeg, so it behaves the same everywhere.
-
-## What this does not test
-
-The Linux half. `fip-stream.sh` sets `--ao=pipewire,pulse,alsa` in
-`lib/output.sh` — CoreAudio is not in that list, so the script exits before
-playing. PipeWire quantum tuning, the PulseAudio fallback chain and the
-Bluetooth/LDAC path are all Linux-only and are not part of this test.
-
-Fixing that is on the list: `coreaudio` needs to go in the fallback chain, or
-the `--ao` list has to be built per platform. A report from this page is what
-tells me whether the rest is worth porting.
-
-## Install
+## 1. Install mpv
 
 ```bash
 brew install mpv
-mpv --version
 ```
 
-Homebrew formula: https://formulae.brew.sh/formula/mpv
+mpv is an independent open-source player, not part of this project.
 
-`brew install mpv` installs the player, not this project. mpv is an
-independent open-source player maintained by its own team — nothing here is
-mine except the flags below.
+## 2. Run
 
-Check which audio outputs your build has:
-
-```bash
-mpv --audio-device=help
-```
-
-Expect `coreaudio` entries. If you see something else, that alone is worth
-reporting.
-
-## Run
-
-One command. Every flag is taken from `fip-stream.sh`, minus the Linux ones.
+One command. The flags are the same as in the script, minus the Linux ones.
 
 ```bash
 mpv --no-video \
@@ -59,63 +31,56 @@ mpv --no-video \
   'https://icecast.radiofrance.fr/fip-hifi.aac?id=radiofrance'
 ```
 
-Removed from the Linux version and why:
+## 3. Cut the network
 
-| Flag | Why it's gone |
-|---|---|
-| `--ao=pipewire,pulse,alsa` | none of those exist on macOS |
-| `--audio-format=s32` | PipeWire-specific; CoreAudio negotiates its own |
-| `--audio-samplerate=48000` | mpv picks it up from the stream |
-| `pw-metadata` quantum call | PipeWire only |
+1. Wait for audio. `Cache:` should climb past 20s.
+2. Turn Wi-Fi off for 10–20 seconds.
+3. Turn it back on and wait up to a minute without touching anything.
+4. `Ctrl+C` to stop.
 
-Added only for this test: `--log-file`, so you have something to paste.
+Twice or three times if you have the patience — one recovery can be luck.
 
-## Procedure
+## 4. Report
 
-1. Run the command, wait for audio.
-2. Watch the bottom line — `Cache:` should climb to 20s or more.
-3. Turn Wi-Fi off for 10–20 seconds.
-4. Turn it back on.
-5. Wait up to a minute without touching anything.
-6. Note whether audio returned on its own.
-7. Ctrl+C to stop. Nothing is left behind — no config, no daemon, no files
-   outside `/tmp/fip-mac.log`.
+Three things:
 
-Repeat two or three times if you have the patience. One recovery can be luck.
+- did audio come back on its own, and roughly how long it took
+- what `Cache:` settles at when stable
+- your macOS version and `mpv --version`
 
-## What counts as success
+**[Open a test report](https://github.com/alexostn/fip-hifi-over-lte/issues/new/choose)**
 
-Audio comes back without you restarting anything. How long it took is the
-interesting number.
+Failure is just as useful — it means the settings don't hold up outside my
+machine, which is the thing I can't find out alone.
 
-A failure is equally useful: it means the reconnect settings don't hold up
-outside my machine, which is exactly what I can't find out alone.
+The log is at `/tmp/fip-mac.log` if you want to paste it. Only your local
+paths are in there, nothing else personal.
 
-## What to report
-
-- did it recover on its own, and roughly how many seconds
-- what `Cache:` settles at once stable
-- whether `Failed to resolve hostname` appeared after the network returned
-  (DNS lag — on Linux the script pre-warms DNS, this command does not)
-- whether `Audio device underrun detected` showed up more than once
-- macOS version, mpv version, network type
-
-Form: https://github.com/alexostn/fip-hifi-over-lte/issues/new/choose → "Test report"
-
-Paste `/tmp/fip-mac.log` as text, or its last 30 lines. It contains no
-personal data beyond your local paths — check before pasting if you'd rather
-be sure.
-
-## Uninstall
+## Clean up
 
 ```bash
 brew uninstall mpv
 rm /tmp/fip-mac.log
 ```
 
-Nothing else was installed and nothing was configured.
+---
 
-## Files
+<details>
+<summary>Why the script itself doesn't run here</summary>
 
-- `fip-stream.sh` — the Linux script, one bash file
-- `lib/output.sh` — where the `--ao` list lives, the reason this page exists
+`lib/output.sh` sets `--ao=pipewire,pulse,alsa`. CoreAudio is not in that
+list, so mpv has nothing to initialize and the script exits before playing.
+Either `coreaudio` goes into the chain, or the list gets built per platform —
+a report from this page is what decides whether that's worth doing.
+
+Also Linux-only and therefore not tested here: PipeWire quantum tuning, the
+PulseAudio fallback chain, and the Bluetooth/LDAC path.
+
+Flags dropped from the Linux command: `--ao=pipewire,pulse,alsa` (none exist
+on macOS), `--audio-format=s32` (PipeWire-specific), `--audio-samplerate=48000`
+(mpv takes it from the stream), and the `pw-metadata` quantum call.
+
+Worth a look if you're curious: `mpv --audio-device=help` lists what your
+build actually has.
+
+</details>
