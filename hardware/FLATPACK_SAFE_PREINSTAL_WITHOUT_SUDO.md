@@ -159,7 +159,7 @@ work — fetch the whole tree at a fixed tag:
 
 ```bash
 # Shallow clone of one tag — nothing is installed, nothing leaves this folder
-git clone --branch v16.3 --depth 1 \
+git clone --branch v16.4 --depth 1 \
   https://github.com/alexostn/fip-hifi-over-lte.git
 cd fip-hifi-over-lte
 ```
@@ -186,8 +186,8 @@ Stop playback: `Ctrl+C`
 > **No git available?** Then two files, in the right places:
 > ```bash
 > mkdir -p fip/lib && cd fip
-> curl -fsSLO https://raw.githubusercontent.com/alexostn/fip-hifi-over-lte/v16.3/fip-stream.sh
-> curl -fsSL -o lib/output.sh https://raw.githubusercontent.com/alexostn/fip-hifi-over-lte/v16.3/lib/output.sh
+> curl -fsSLO https://raw.githubusercontent.com/alexostn/fip-hifi-over-lte/v16.4/fip-stream.sh
+> curl -fsSL -o lib/output.sh https://raw.githubusercontent.com/alexostn/fip-hifi-over-lte/v16.4/lib/output.sh
 > chmod +x fip-stream.sh
 > ```
 
