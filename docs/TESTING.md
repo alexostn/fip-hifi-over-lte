@@ -26,9 +26,11 @@ Level 1 alone is a useful report.
 ## The six steps
 
 1. Install mpv — see your platform below.
-2. Start playback — the command or the script.
+2. Start playback — the command or the script. **Do this before anything
+   else.** The log commands in step 6 read a file that doesn't exist yet.
 3. Note what `Cache:` settles at in the status line.
 4. Disconnect the network for 15 seconds. Wi-Fi off, or unplug the cable.
+   **Not your network?** Skip this step — see below.
 5. Reconnect and wait up to a minute **without touching anything**.
 6. `Ctrl+C`, then read two numbers out of the log.
 
@@ -40,6 +42,19 @@ Level 1 alone is a useful report.
 - how many `Failed to resolve` lines in the log
 
 That's the whole report. Anything else is a bonus.
+
+### If the network isn't yours
+
+On a school, work or shared machine, don't cut it. Pulling the cable or
+killing the Wi-Fi affects other people, and no test is worth that.
+
+Just run it, note the `Cache:` value, and report
+**"played, network cut not tested"** — that's a complete result, not a gap.
+It still tells me the stream opens and the buffer behaves on hardware I've
+never seen.
+
+If you want the reconnect half anyway: tether to your phone and toggle
+*that* instead. Your own hotspot is yours to interrupt.
 
 ---
 
@@ -68,6 +83,12 @@ grep -E "Will reconnect|underrun|resolve|AO:" /tmp/fip-test.log | tail -20
 ```
 
 Clean up with `rm /tmp/fip-test.log`.
+
+**One line that looks alarming and isn't:** a `Will reconnect ...
+Input/output error` right at the moment you press Ctrl+C is normal. ffmpeg
+notices the closed socket about a millisecond before the process exits —
+check the timestamps and you'll see them land together. Only reconnect lines
+*during* playback mean anything.
 
 ### About that `Cache:` number
 
@@ -145,9 +166,14 @@ pactl info | grep "Server Name"
 ```
 
 `PulseAudio (on PipeWire ...)` or `pipewire` — PipeWire owns the card, the
-tuned path. Plain `pulseaudio` — a standalone daemon owns it, mpv falls
-through to `ao=pulse`, and the PipeWire-specific flags are skipped. Both are
-valid; I want to know which you got.
+tuned path. Plain `pulseaudio` — a standalone daemon owns it and mpv falls
+through to `ao=pulse`. Both are valid; I want to know which you got.
+
+The `AO:` line also tells you the sample format. Level 1 has no
+`--audio-format` flag, so mpv negotiates its own — `float` is normal there.
+Level 2 asks for `s32`, and it does get applied even on the `pulse` path.
+A mismatch between what the script asks for and what `AO:` reports is worth
+mentioning.
 
 ---
 

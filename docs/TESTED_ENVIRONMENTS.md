@@ -8,7 +8,7 @@ credited. Wi-Fi names, IP and MAC addresses are never recorded.
 
 | Version | System | Network | Output | Level | Result | Report |
 |---|---|---|---|---|---|---|
-| v16.3 | Ubuntu, managed lab machine, no sudo | Wi-Fi | built-in | 2 | played via `ao=pulse` fallback; `Cache:` 3.2s; 0 underruns | [#1](../../issues/1) |
+| v16.3 | Ubuntu, managed lab machine, no sudo | Wi-Fi | built-in | 2 | played via `ao=pulse` fallback, `s32` applied; `Cache:` 3.2s; 0 underruns; network cut not tested (shared machine) | [#1](../../issues/1) |
 | v16.3 | macOS | Wi-Fi | built-in | 1 | recovered on its own; `Cache:` 22s; underrun at start; DNS lag after reconnect | sent directly |
 
 **Level** — 1 is the mpv command alone, 2 includes `fip-stream.sh`.
@@ -22,8 +22,15 @@ credited. Wi-Fi names, IP and MAC addresses are never recorded.
 - `--demuxer-readahead-secs=60` turned out to be unreachable on a live
   stream; the two reports disagree on the actual cache depth (3.2s vs 22s),
   which is still open
-- `--audio-format=s32` is not applied on the `pulse` path — output came out
-  as float
+- the `AO:` line turned out to be the quickest way to tell which path is in
+  use, so it now goes in every report. It also reports the sample format,
+  which is how the `s32` question got settled: the flag *is* applied on the
+  `pulse` path. `float` appears in Level 1 because that command carries no
+  `--audio-format` at all, and on macOS because CoreAudio negotiates its own.
+- documentation, from walking the instructions as a stranger would: the log
+  commands invite being run before the test itself, cutting the network is
+  not an option on a shared machine, and a `Will reconnect` line fires
+  harmlessly at every Ctrl+C
 
 ## Open questions a report could settle
 
@@ -31,6 +38,8 @@ credited. Wi-Fi names, IP and MAC addresses are never recorded.
 - whether `underrun` at startup and DNS lag after reconnect reproduce on a
   second Mac, or belonged to one network
 - whether `force-quantum` does anything measurable on a PipeWire machine
+- whether the restore path added in v16.4 works where PipeWire owns the card
+  — it has only been confirmed to correctly do nothing where it doesn't
 
 ## Testers
 
