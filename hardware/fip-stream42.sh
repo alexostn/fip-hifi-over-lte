@@ -1,0 +1,502 @@
+#!/bin/bash
+# ٩(◕◕)~*✲ FIP RADIO — mobile-stable HiFi stream v16.42
+# AUDIO: PipeWire or PulseAudio (s32 format) — auto-detected
+#
+# USAGE:  ./fip-stream.sh [station]
+#   FIP_BASS=-4        ./fip-stream.sh   # start with bass -6..+6 dB (default 0)
+#   FIP_BT_CODEC=sbc   ./fip-stream.sh   # bluetooth codec (default sbc_xq_512, off = don't touch)
+#   FIP_QUANTUM=4096   ./fip-stream.sh   # PipeWire quantum (default 8192)
+#
+# LIVE KEYS (in this terminal while playing):
+#   1 2 3 → bass −6 −4 −2 dB   4 → bass off   5 6 7 → bass +2 +4 +6 dB
+# Diagnostics: JSONL + Prometheus textfile for node_exporter
+# Logs: ~/fip-diagnostics.jsonl | ~/.prom-textfile/fip_stream.prom | /tmp/fip-mpv-last.log
+#
+# ┌────────────────────────────────────────────────────────────────────────┐
+# │  v16 CHANGES — micro-cut fix (confirmed by grep corrupt/discard = 2)   │
+# │                                                                        │
+# │  1. fflags=+discardcorrupt  → +genpts   (concealment instead of drop)  │
+# │  2. err_detect=ignore_err   → careful   (soft error recovery)          │
+# │  3. cache-pause=no          → yes       (pause > play on underrun)     │
+# │  4. cache-pause-wait        → 0.5       (trigger threshold in seconds) │
+# │  5. demuxer-max-bytes       → 64MiB     (double headroom for LTE burst)│
+# │  6. audio-buffer            → 2.0       (shift reserve to demuxer)     │
+# │                                                                        │
+# │  v16.2 CHANGES — AO fix + term-msg fix + network tuning                │
+# │                                                                        │              
+# │  7. ao=alsa           → pipewire  (direct native PipeWire graph)       │
+# │  8. audio-format=s16  → s32       (match PipeWire native S32LE graph)  │
+# │  9. term-playing-msg  → fixed     (remove ${audio-out-detected-device})│
+# │  10. network-timeout  → 15        (more tolerance for LTE stall)       │
+# │  11. reconnect_delay_max → 5      (faster retry on short LTE drops)    │
+# │                                                                        │
+# │  v16.3 CHANGES — xrun fix                                              │
+# │                                                                        │
+# │  FINDING: pw-top showed mpv ERR=29, sink ERR=576 with audio-buffer=2.0 │
+# │           PipeWire quantum=1024/48000=21ms — explicit audio-buffer     │
+# │           conflicted with PipeWire internal scheduling → xruns         │
+# │           without --audio-buffer: mpv ERR stable at 6, not growing     │
+# │                                                                        │
+# │  12. audio-buffer=2.0 → removed  (let PipeWire manage its own quantum) │
+# │                                                                        │
+# │  v16.42 CHANGES — bluetooth + bass + PulseAudio machines                │
+# │                                                                        │
+# │  13. bt codec    → auto switch-codec sbc_xq_512 on PulseAudio 15+     │
+# │  14. bass keys   → 1-7 written to the mpv config mpv actually reads   │
+# │                    (flatpak: ~/.var/app/io.mpv.Mpv/config/mpv)         │
+# │  15. FIP_BASS    → starting bass level, same @bass label as the keys   │
+# │  16. banner      → shows real audio server instead of fixed PipeWire   │
+# └────────────────────────────────────────────────────────────────────────┘
+#
+# ——— HOW TO VERIFY ————————————————————————————————————————————————————————
+#
+#   1. real AO health — check [cplayer] line, NOT [term-msg]:
+#        grep "\[cplayer\].*AO:" /tmp/fip-mpv-last.log | tail -1
+#        v16.3 OK: [cplayer] AO: [pipewire] 48000Hz stereo 2ch s32
+#
+#   2. audio-buffer gone — confirm parameter not passed:
+#        grep "audio-buffer" /tmp/fip-mpv-last.log
+#        OK: empty output
+#
+#   3. xrun check — PipeWire ERR must not grow during playback:
+#        pw-top
+#        mpv ERR stable (not growing) = clean  (v16.3 baseline: 6, frozen)
+#        sink ERR frozen = old sessions, not new xruns
+#
+#   4. corrupt/discard frame count — root cause of micro-cuts:
+#        grep -c "corrupt\|discarding\|DTS" /tmp/fip-mpv-last.log
+#        v15 baseline: 2  |  v16+ target: 0
+#
+#   5. sink running — confirm PipeWire output is active:
+#        pactl list sinks short
+#        OK: alsa_output...analog-stereo  s32le 2ch 48000Hz  RUNNING
+#
+#   6. network quality — real TCP, not ping (Icecast blocks ICMP):
+#        for i in $(seq 1 10); do
+#          curl -o /dev/null -s -w "connect:%{time_connect}s  ttfb:%{time_starttransfer}s\n" \
+#          --max-time 3 "https://icecast.radiofrance.fr/fip-hifi.aac?id=radiofrance"
+#        done
+#        ttfb stable <0.8s = good LTE | ttfb >1s or 0.000s = jitter/cut source
+#
+#   7. live cache depth — run in second terminal while streaming:
+#        watch -n1 "grep -oP 'Cache: \K[0-9.]+' /tmp/fip-mpv-last.log | tail -5"
+#        0.0s = underrun event = cut source confirmed
+#
+# ————————————————————————————————————————————————————————————————————————————
+
+declare -A STATIONS
+STATIONS[fip]="https://icecast.radiofrance.fr/fip-hifi.aac?id=radiofrance"
+STATIONS[rock]="https://icecast.radiofrance.fr/fiprock-hifi.aac?id=radiofrance"
+STATIONS[jazz]="https://icecast.radiofrance.fr/fipjazz-hifi.aac?id=radiofrance"
+STATIONS[groove]="https://icecast.radiofrance.fr/fipgroove-hifi.aac?id=radiofrance"
+STATIONS[world]="https://icecast.radiofrance.fr/fipworld-hifi.aac?id=radiofrance"
+STATIONS[nouveautes]="https://icecast.radiofrance.fr/fipnouveautes-hifi.aac?id=radiofrance"
+STATIONS[reggae]="https://icecast.radiofrance.fr/fipreggae-hifi.aac?id=radiofrance"
+STATIONS[electro]="https://icecast.radiofrance.fr/fipelectro-hifi.aac?id=radiofrance"
+STATIONS[hiphop]="https://icecast.radiofrance.fr/fiphiphop-hifi.aac?id=radiofrance"
+STATIONS[pop]="https://icecast.radiofrance.fr/fippop-hifi.aac?id=radiofrance"
+STATIONS[metal]="https://icecast.radiofrance.fr/fipmetal-hifi.aac?id=radiofrance"
+STATIONS[sacre]="https://icecast.radiofrance.fr/fipsacrefrancais-hifi.aac?id=radiofrance"
+STATIONS[cultes]="https://icecast.radiofrance.fr/fipcultes-hifi.aac?id=radiofrance"
+
+NAME="${1:-fip}"
+URL="${STATIONS[$NAME]}"
+
+# exit cleanly on Ctrl+C / kill instead of letting the reconnect loop restart mpv
+#
+# `mpv` here is a flatpak shim (exec flatpak run --user io.mpv.Mpv) — the real
+# player runs two bwrap layers deep. Terminal SIGINT to the process group
+# doesn't reliably reach a sandboxed grandchild that far down, so kill the
+# tracked PID directly instead of trusting group signal propagation.
+MPV_PID=""
+PW_QUANTUM_WANT="${FIP_QUANTUM:-8192}"
+PW_QUANTUM_SAVED=""
+
+pw_quantum_read() {
+    pw-metadata -n settings 2>/dev/null \
+        | grep "clock.$1'" | grep -oE "value:'[0-9]+'" | grep -oE '[0-9]+'
+}
+
+pw_quantum_setup() {
+    command -v pw-metadata >/dev/null 2>&1 || return 0
+    if command -v pactl >/dev/null 2>&1; then
+        pactl info 2>/dev/null | grep -q "Server Name.*PipeWire" || {
+            echo "(゜.゜) PipeWire is not the audio server - leaving quantum alone"
+            return 0
+        }
+    fi
+    local max
+    max=$(pw_quantum_read max-quantum)
+    if [ -n "$max" ] && [ "$PW_QUANTUM_WANT" -gt "$max" ] 2>/dev/null; then
+        echo "(゜.゜) quantum ${PW_QUANTUM_WANT} exceeds max-quantum ${max} - clamping"
+        PW_QUANTUM_WANT="$max"
+    fi
+    PW_QUANTUM_SAVED=$(pw_quantum_read force-quantum)
+    [ -n "$PW_QUANTUM_SAVED" ] || PW_QUANTUM_SAVED=0
+    pw-metadata -n settings 0 clock.force-quantum "$PW_QUANTUM_WANT" >/dev/null 2>&1
+}
+
+pw_quantum_restore() {
+    [ -n "$PW_QUANTUM_SAVED" ] || return 0
+    pw-metadata -n settings 0 clock.force-quantum "$PW_QUANTUM_SAVED" >/dev/null 2>&1
+    PW_QUANTUM_SAVED=""
+}
+
+cleanup() {
+    [ -n "$MPV_PID" ] && kill "$MPV_PID" 2>/dev/null
+    pw_quantum_restore
+    exit 0
+}
+trap cleanup INT TERM
+trap pw_quantum_restore EXIT
+
+# ——( ⌐■_■)—— v16.42 bluetooth codec (PulseAudio 15+) ———————————————————————————
+#   XP500 speaks SBC/AAC; PulseAudio has no AAC, but SBC-XQ (453/512/552 kbps).
+#   Codec resets on every BT reconnect → checked again before each mpv start.
+#   PipeWire: switch-codec message doesn't exist → silently skipped.
+BT_CODEC_WANT="${FIP_BT_CODEC:-sbc_xq_512}"
+
+bt_codec_setup() {
+    [ "$BT_CODEC_WANT" = "off" ] && return 0
+    command -v pactl >/dev/null 2>&1 || return 0
+    local card cur
+    card=$(pactl list cards short 2>/dev/null | awk '/bluez_card/{print $2; exit}')
+    [ -n "$card" ] || return 0
+    cur=$(pactl send-message "/card/$card/bluez" get-codec 2>/dev/null | tr -d '"')
+    [ -n "$cur" ] || return 0                     # no codec API (PipeWire / old PA)
+    [ "$cur" = "$BT_CODEC_WANT" ] && return 0
+    if pactl send-message "/card/$card/bluez" switch-codec "\"$BT_CODEC_WANT\"" >/dev/null 2>&1; then
+        echo "(⌐■_■) bluetooth · $cur → $BT_CODEC_WANT"
+        sleep 1                                   # let the new sink settle
+    else
+        echo "(゜.゜) bluetooth: $BT_CODEC_WANT not accepted - staying on $cur"
+    fi
+}
+
+# ——( ˘ᴥ˘)—— v16.42 bass: live keys 1-7 + FIP_BASS start level —————————————————————
+#   ffmpeg 'bass' = low shelf below 110 Hz. Boost gets equal volume cut → no clipping.
+#   Keys go to the input.conf mpv really reads: `mpv` may be a flatpak shim,
+#   whose config lives in ~/.var/app/io.mpv.Mpv/config/mpv (override: FIP_MPV_CONF_DIR).
+bass_af() {
+    local g=$1
+    if   [ "$g" -lt 0 ]; then echo "@bass:lavfi=[bass=g=${g}:f=110:w=0.7]"
+    elif [ "$g" -gt 0 ]; then echo "@bass:lavfi=[volume=-${g}dB,bass=g=${g}:f=110:w=0.7]"
+    fi
+}
+
+mpv_conf_dir() {
+    if [ -n "$FIP_MPV_CONF_DIR" ]; then echo "$FIP_MPV_CONF_DIR"
+    elif grep -qs 'io.mpv.Mpv' "$(command -v mpv)"; then echo "$HOME/.var/app/io.mpv.Mpv/config/mpv"
+    else echo "${XDG_CONFIG_HOME:-$HOME/.config}/mpv"
+    fi
+}
+
+bass_keys_setup() {
+    local dir conf key g
+    dir=$(mpv_conf_dir); conf="$dir/input.conf"
+    mkdir -p "$dir" || return 0
+    [ -f "$conf" ] && sed -i '/@bass/d' "$conf"   # idempotent: replace old bass lines only
+    key=1
+    for g in -6 -4 -2 0 2 4 6; do
+        if [ "$g" -eq 0 ]; then
+            echo "$key af remove @bass ; show-text \"bass 0\""
+        else
+            echo "$key af remove @bass ; af add $(bass_af "$g") ; show-text \"bass $(printf %+d "$g") dB\""
+        fi
+        key=$((key + 1))
+    done >> "$conf"
+}
+
+BASS="${FIP_BASS:-0}"
+if ! [[ "$BASS" =~ ^[+-]?[0-6]$ ]]; then
+    echo "(゜.゜) FIP_BASS=$BASS out of range -6..6 - using 0"
+    BASS=0
+fi
+BASS=$((BASS))
+AF_ARGS=()
+[ "$BASS" -ne 0 ] && AF_ARGS=("--af=$(bass_af "$BASS")")
+# ————————————————————————————————————————————————————————————————————————————
+
+SELF="$(readlink -f "$0")"
+. "$(dirname "$SELF")/lib/output.sh"
+bt_codec_setup
+out_preflight
+bass_keys_setup
+
+# ——( ˘・з・)—— DNS pre-warm via Quad9 ————————————————————————————————————————
+HOST=$(echo "$URL" | sed 's|https://||' | cut -d'/' -f1)
+dig +short +time=2 +tries=1 "$HOST" @9.9.9.9 >/dev/null 2>&1 &
+# ————————————————————————————————————————————————————————————————————————————
+
+# ——( ˘・з・)—— Diagnostics paths ——————————————————————————————————————————————
+JSONL="${HOME}/fip-diagnostics.jsonl"
+PROM_DIR="${HOME}/.prom-textfile"
+PROM_FILE="${PROM_DIR}/fip_stream.prom"
+MPV_LOG="/tmp/fip-mpv-last.log"
+# per-session log, not cumulative — truncate so old sessions don't linger
+: > "$MPV_LOG"
+mkdir -p "$PROM_DIR"
+# ————————————————————————————————————————————————————————————————————————————
+
+COUNT=0
+
+# ——— helper: gather network context (~2s max, all parallel) ——————————————————
+collect_diagnostics() {
+local exit_code=$1 duration=$2
+
+# 1. ping — NOTE: Icecast blocks ICMP → null result is expected, not an error
+local ping_rtt
+ping_rtt=$(ping -c 1 -W 2 "$HOST" 2>/dev/null \
+| grep -oP 'time=\K[0-9.]+' || echo "null")
+
+# 2. HTTP probe — did Icecast answer at all?
+local http_code
+http_code=$(curl -o /dev/null -s -w "%{http_code}" \
+--max-time 3 --connect-timeout 2 "$URL" 2>/dev/null || echo "0")
+
+# 3. DNS resolution time — stall detector
+local dns_ms
+dns_ms=$(dig +stats +time=2 +tries=1 "$HOST" @9.9.9.9 2>/dev/null \
+| grep -i "query time" | grep -oP '\d+(?= msec)' || echo "-1")
+
+# 4. LTE signal (nmcli for WiFi; mmcli -m 0 --signal-get for LTE modem)
+local signal
+signal=$(nmcli -t -f active,signal dev wifi 2>/dev/null \
+| grep "^yes" | cut -d: -f2 || echo "-1")
+
+# 5. Classify cause
+local cause
+if [ "$ping_rtt" = "null" ]; then cause="no_network"
+elif [ "$exit_code" -eq 0 ]; then cause="clean_exit"
+elif [ "$http_code" -ge 500 ] 2>/dev/null; then cause="server_error"
+elif [ "$http_code" -ge 400 ] 2>/dev/null; then cause="http_4xx"
+elif [ "$duration" -lt 5 ]; then cause="fast_fail"
+else cause="stream_drop"
+fi
+
+# ——— write JSONL ——————————————————————————————————————————————————————————
+printf '{"ts":"%s","count":%d,"station":"%s","duration_s":%d,"exit_code":%d,"ping_ms":%s,"http_code":%s,"dns_ms":%s,"lte_signal":%s,"cause":"%s"}\n' \
+"$(date -Iseconds)" "$COUNT" "$NAME" "$duration" "$exit_code" \
+"${ping_rtt:-null}" "$http_code" "$dns_ms" "$signal" "$cause" \
+>> "$JSONL"
+
+# ——— write Prometheus textfile ————————————————————————————————————————————
+cat > "${PROM_FILE}.tmp" << PROM
+# HELP fip_reconnect_total Total reconnections since script start
+# TYPE fip_reconnect_total counter
+fip_reconnect_total{station="$NAME"} $COUNT
+# HELP fip_session_duration_seconds Duration of last playback session
+# TYPE fip_session_duration_seconds gauge
+fip_session_duration_seconds{station="$NAME"} $duration
+# HELP fip_ping_ms Ping RTT to Icecast host at reconnect (-1 = no network)
+# TYPE fip_ping_ms gauge
+fip_ping_ms{station="$NAME",host="$HOST"} ${ping_rtt/-1/0}
+# HELP fip_http_response_code HTTP response code from stream URL probe
+# TYPE fip_http_response_code gauge
+fip_http_response_code{station="$NAME"} $http_code
+# HELP fip_dns_ms DNS resolution time in ms (-1 = skipped)
+# TYPE fip_dns_ms gauge
+fip_dns_ms{station="$NAME",resolver="quad9"} $dns_ms
+# HELP fip_lte_signal LTE/WiFi signal level 0-100 (-1 = unavailable)
+# TYPE fip_lte_signal gauge
+fip_lte_signal $signal
+# HELP fip_cause_total Reconnect count by inferred cause
+# TYPE fip_cause_total counter
+fip_cause_total{station="$NAME",cause="$cause"} $COUNT
+PROM
+mv "${PROM_FILE}.tmp" "$PROM_FILE" # atomic write — no partial scrape
+
+}
+# ————————————————————————————————————————————————————————————————————————————
+
+if [ -n "$URL" ]; then
+AUDIO_SERVER=$(pactl info 2>/dev/null | grep -q "Server Name.*PipeWire" && echo PipeWire || echo PulseAudio)
+echo "٩(◕◕) FIP 16.42 $NAME — 192kbps Hi-Fi ($AUDIO_SERVER s32 · bass ${BASS} dB · keys 1-7)"
+# [v18] Global PipeWire quantum — 8192 frames (~170 ms @ 48 kHz).
+#
+#   NOT a stream-stability tweak. System-wide fix for clicks and pops in
+#   browser audio: Chromium and Firefox feed the graph in ~10 ms chunks, and
+#   a narrow quantum underruns on any scheduler hiccup.
+#
+#   REQUIRES default.clock.max-quantum >= 8192 in
+#   ~/.config/pipewire/pipewire.conf.d/51-latency.conf. Above that ceiling
+#   the value is silently clamped and pw-top keeps showing the old QUANT —
+#   which is why manual pw-metadata experiments appeared to be ignored: this
+#   line overwrote them on every launch.
+#
+#   Cost: ~170 ms of output latency. Fine for radio and background music,
+#   wrong for games, calls or lip-sync. Halve to 4096 if that matters.
+#
+#   Scope: global, affects every client, NOT reverted on exit — it persists
+#   until PipeWire restarts.
+#   Revert: pw-metadata -n settings 0 clock.force-quantum 0
+#   Verify: pw-metadata -n settings 0 | grep quantum
+#
+#   NOTE: near no-op on a Bluetooth sink — the bluez node is itself the
+#   driver and runs its own quantum regardless.
+pw_quantum_setup
+
+while true; do
+bt_codec_setup          # BT reconnect resets codec → re-apply (no-op if already set)
+SESSION_START=$(date +%s)
+
+MPV_ARGS=(
+# --- audio -------------------------------------------------------
+--no-video
+--audio-channels=stereo
+
+# [v16.2 CHANGED] ao: alsa → pipewire
+#   alsa: PipeWire-ALSA bridge rejected s16 → AO:(error) in [cplayer]
+#   pipewire: direct native graph, s32, ERR=0 confirmed by pw-top
+"${OUT_ARGS[@]}"
+# --ao=alsa  # v15-v16.1: caused AO:(error)
+
+# [v16.2 CHANGED] audio-format: s16 → s32
+#   s32 matches PipeWire native S32LE graph — zero-copy, no upmix conversion
+# --audio-format=s16  # v15-v16.1: forced s16→S32LE conversion loop
+
+--audio-samplerate=48000    # matches FIP native rate
+
+# [v16.42 NEW] starting bass from FIP_BASS (empty when 0); keys 1-7 change it live
+"${AF_ARGS[@]}"
+
+# --- terminal stats ----------------------------------------------
+# press i in terminal → shows codec, bitrate, cache depth live
+# verify AO via: grep "\[cplayer\].*AO:" /tmp/fip-mpv-last.log | tail -1
+#
+# [v16.2 FIXED] removed ${audio-out-detected-device} from term-playing-msg
+#   returned empty string before PipeWire stream reached streaming state
+#   → mpv rendered it as (error) → misleading in log
+--term-playing-msg='(+) Audio: ${audio-codec} ${audio-params/channels}ch ${audio-params/samplerate}Hz ${audio-params/format}\nA: ${playback-time} Cache: ${demuxer-cache-duration:.1}s'
+# --term-playing-msg='...AO: [${audio-out-detected-device}]...'  # v15-v16.2: showed (error)
+
+# --- buffer: micro-cut prevention --------------------------------
+
+# [v16.3 REMOVED] audio-buffer
+#   pw-top showed mpv ERR=29, sink ERR=576 with audio-buffer=2.0
+#   PipeWire quantum=1024 frames (~21ms) manages its own scheduling
+#   explicit audio-buffer conflicted → xruns → audible cuts
+#   without it: mpv ERR stable at 6, not growing (confirmed Jun 26 2026)
+# --audio-buffer=2.0  # v16.2: caused xruns — confirmed by pw-top ERR=576
+# --audio-buffer=10.0 # v15
+
+--cache=yes
+
+# [v16 CHANGED] demuxer-max-bytes: 16MiB → 64MiB
+#   absorbs LTE burst retransmissions without starving decoder
+--demuxer-max-bytes=64MiB
+# --demuxer-max-bytes=16MiB  # v15
+
+--demuxer-readahead-secs=60
+
+# [v16 CHANGED] cache-pause: no → yes
+#   brief pause on underrun > playing from empty buffer (= micro-cut)
+--cache-pause=yes
+# --cache-pause=no  # v15: played through empty buffer → audible micro-cuts
+
+# [v16 NEW] cache-pause-wait=0.5 — pause when cache drops below 0.5s
+--cache-pause-wait=0.5
+
+--cache-pause-initial=no    # start immediately, no pre-buffer wait
+
+# [v16 CHANGED] fflags: +discardcorrupt → +genpts
+#   discardcorrupt: silently drops damaged AAC frames → 20-50ms silence gaps
+#   genpts: regenerates timestamps, decoder applies error concealment instead
+#   ROOT CAUSE CONFIRMED: grep -c "corrupt\|discarding\|DTS" = 2 on v15
+--demuxer-lavf-o-append=fflags=+genpts
+# --demuxer-lavf-o-append=fflags=+discardcorrupt  # v15: root cause of micro-cuts
+
+# [v16 CHANGED] err_detect: ignore_err → careful
+#   ignore_err: silent broken frame delivery to decoder
+#   careful: soft concealment — fills gap with interpolated audio
+--demuxer-lavf-o-append=err_detect=careful
+# --demuxer-lavf-o-append=err_detect=ignore_err  # v15
+
+# --- network -----------------------------------------------------
+--stream-buffer-size=512KiB
+
+# [v16.2 CHANGED] network-timeout: 10 → 15
+#   mtr confirmed 26.7% packet loss on LTE hop3 — need more stall tolerance
+--network-timeout=15
+# --network-timeout=10  # v16
+
+# --- reconnect ---------------------------------------------------
+--stream-lavf-o-append=reconnect=1
+--stream-lavf-o-append=reconnect_streamed=1
+--stream-lavf-o-append=reconnect_on_network_error=yes
+--stream-lavf-o-append=reconnect_on_http_error=4xx,5xx
+
+# [v16.2 CHANGED] reconnect_delay_max: 10 → 5
+#   LTE drops are short bursts — faster retry reduces audible gap
+--stream-lavf-o-append=reconnect_delay_max=5
+# --stream-lavf-o-append=reconnect_delay_max=10  # v16
+
+--stream-lavf-o-append=rw_timeout=15000000
+--stream-lavf-o-append=user_agent='Mozilla/5.0 (compatible; fip-hifi-stream/16.42; LTE)'
+
+--log-file="$MPV_LOG"
+# debug writes hundreds of MB over a multi-hour session — raise back to
+# debug only while chasing a specific drop.
+--msg-level=network=warn
+)
+
+mpv "${MPV_ARGS[@]}" "$URL" &
+MPV_PID=$!
+wait "$MPV_PID"
+EXIT_CODE=$?
+MPV_PID=""
+
+SESSION_END=$(date +%s)
+SESSION_DURATION=$((SESSION_END - SESSION_START))
+COUNT=$((COUNT + 1))
+
+collect_diagnostics "$EXIT_CODE" "$SESSION_DURATION" & # non-blocking
+
+echo "( ˘・з・)・・・ #${COUNT} interrupted (${SESSION_DURATION}s) — reconnect after 1s…"
+sleep 1
+done
+else
+echo "stations: fip rock jazz groove world reggae electro hiphop pop metal sacre cultes nouveautes"
+fi
+
+# ——— analysis shortcuts ——————————————————————————————————————————————————————
+# tail live:       tail -f ~/fip-diagnostics.jsonl | jq .
+# cause breakdown: jq -r '.cause' ~/fip-diagnostics.jsonl | sort | uniq -c | sort -rn
+# short sessions:  jq 'select(.duration_s < 10)' ~/fip-diagnostics.jsonl
+# no-network:      jq 'select(.cause == "no_network")' ~/fip-diagnostics.jsonl
+# dns stalls:      jq 'select(.dns_ms > 500)' ~/fip-diagnostics.jsonl
+# ————————————————————————————————————————————————————————————————————————————
+# ——— v15 → v16 → v16.2 → v16.3 diagnostic evidence —————————————————————————
+#
+# TEST 1 — corrupt frame count (v15, Jun 26 2026 ~17:29 CEST):
+#   grep -c "corrupt\|discarding\|DTS" /tmp/fip-mpv-last.log
+#   result: 2 → fflags=+discardcorrupt dropped 2 AAC frames → micro-cuts
+#
+# TEST 2 — AO health (v16.2, Jun 26 2026 ~19:04 CEST):
+#   grep "\[cplayer\].*AO:" /tmp/fip-mpv-last.log | tail -1
+#   result: [cplayer] AO: [pipewire] 48000Hz stereo 2ch s32  ← correct
+#   NOTE: [term-msg] showed AO:(error) floatp — false alarm,
+#         ${audio-out-detected-device} empty pre-streaming-state
+#   pactl list sinks short → s32le 2ch 48000Hz RUNNING
+#
+# TEST 3 — xrun investigation (v16.2, Jun 26 2026 ~19:37 CEST):
+#   pw-top with audio-buffer=2.0 → mpv ERR=29, sink ERR=576 (growing)
+#   pw-top with audio-buffer=0.5 → mpv ERR=2  (slowed)
+#   pw-top without audio-buffer  → mpv ERR=6  (frozen, not growing)
+#   conclusion: explicit audio-buffer conflicts with PipeWire quantum (21ms)
+#
+# TEST 4 — network path (Jun 26 2026 ~18:29 CEST):
+#   curl ttfb loop     → 0.45–1.04s jitter (580ms spread), 1 timeout
+#   mtr hop3           → 26.7% loss, StDev 33ms — LTE tower instability
+#   mtr hop7 par1.neo  → 93.3% loss — transit ICMP block, not real loss
+#   pw-top ERR         → 0 — PipeWire graph clean
+#   sensors CPU        → 50°C Package — no thermal throttling
+#   ping 100% loss     → expected: Icecast blocks ICMP
+#
+# POST-PATCH TARGETS:
+#   grep "\[cplayer\].*AO:" /tmp/fip-mpv-last.log | tail -1
+#   → AO: [pipewire] 48000Hz stereo 2ch s32
+#   grep "audio-buffer" /tmp/fip-mpv-last.log → empty
+#   grep -c "corrupt\|discarding\|DTS" /tmp/fip-mpv-last.log → 0
+#   pw-top mpv ERR → frozen (not growing)
+# ————————————————————————————————————————————————————————————————————————————
